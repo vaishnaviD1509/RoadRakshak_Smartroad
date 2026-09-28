@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Database
+*.db
+
+# Dataset
+dataset/
+
+# Uploaded images
+uploads/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/

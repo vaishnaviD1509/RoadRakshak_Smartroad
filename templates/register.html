@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Create an account — Road Rakshak{% endblock %}
+
+{% block content %}
+<section class="rr-auth-section">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-6 col-lg-5">
+        <div class="rr-auth-card">
+          <h1 class="rr-h2 mb-1">Create your account</h1>
+          <p class="rr-body-text mb-4">Register to report road damage and track your complaints.</p>
+
+          <form method="POST" action="{{ url_for('auth.register') }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="mb-3">
+              <label class="form-label" for="name">Full name</label>
+              <input type="text" class="form-control" id="name" name="name" value="{{ name }}" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="email">Email address</label>
+              <input type="email" class="form-control" id="email" name="email" value="{{ email }}" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="password">Password</label>
+              <input type="password" class="form-control" id="password" name="password" minlength="8" required>
+              <div class="form-text">At least 8 characters.</div>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label" for="confirm_password">Confirm password</label>
+              <input type="password" class="form-control" id="confirm_password" name="confirm_password" minlength="8" required>
+            </div>
+
+            <button type="submit" class="btn rr-btn-primary w-100">Create account</button>
+          </form>
+
+          <p class="rr-body-text text-center mt-4 mb-0">
+            Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

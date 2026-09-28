@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Complaint submitted — Road Rakshak{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-7">
+        <div class="rr-auth-card text-center">
+          <div class="rr-confirm-check">&#10003;</div>
+          <h1 class="rr-h2 mt-3">Complaint submitted</h1>
+          <p class="rr-body-text">Thank you for reporting this. Here is your complaint ID - save it to track progress.</p>
+
+          <div class="rr-confirm-id">{{ complaint.complaint_id }}</div>
+
+          <div class="row text-start mt-4 g-3">
+            <div class="col-sm-6">
+              <div class="rr-confirm-label">Category</div>
+              <div class="rr-confirm-value">{{ complaint.damage_category }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="rr-confirm-label">Current status</div>
+              <div class="rr-confirm-value"><span class="rr-complaint-status">{{ complaint.status }}</span></div>
+            </div>
+            <div class="col-sm-6">
+              <div class="rr-confirm-label">Location</div>
+              <div class="rr-confirm-value">{{ complaint.location_name }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="rr-confirm-label">Submitted on</div>
+              <div class="rr-confirm-value">{{ complaint.created_at.strftime('%d %b %Y, %H:%M') }} UTC</div>
+            </div>
+          </div>
+
+          {% if complaint.image_path %}
+          <div class="mt-4 text-start">
+            <div class="rr-confirm-label mb-2">Uploaded photograph</div>
+            <img src="{{ url_for('citizen.uploaded_file', filename=complaint.image_path) }}"
+                 alt="Uploaded photo of the reported damage" class="rr-image-preview">
+          </div>
+          {% endif %}
+
+          <div class="rr-ai-note mt-4 text-start">
+            {% if complaint.ai_admin_reviewed %}
+              <strong>Reviewed by an administrator:</strong> classified as {{ complaint.ai_prediction }}.
+            {% elif complaint.ai_prediction %}
+              <strong>Preliminary AI detection:</strong> {{ complaint.ai_prediction }}
+              ({{ "%.1f"|format(complaint.ai_confidence * 100) }}% confidence).
+              This is not a confirmed finding - an administrator will still review your complaint.
+            {% else %}
+              AI analysis did not produce a confirmed detection for this photo - either no
+              trained model is connected yet, or the model found nothing above its
+              confidence threshold. Your complaint has still been submitted successfully
+              and is queued for manual review.
+            {% endif %}
+          </div>
+
+          <div class="d-flex flex-wrap gap-3 justify-content-center mt-4">
+            <a href="{{ url_for('tracking.track', complaint_id=complaint.complaint_id) }}" class="btn rr-btn-outline">Track this complaint</a>
+            <a href="{{ url_for('citizen.report_damage') }}" class="btn rr-btn-outline">Report another</a>
+            <a href="{{ url_for('main.index') }}" class="btn rr-btn-primary">Back to home</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

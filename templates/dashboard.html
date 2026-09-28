@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}My Dashboard — Road Rakshak{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+      <div>
+        <h1 class="rr-h2 mb-1">My dashboard</h1>
+        <p class="rr-body-text mb-0">Welcome back, {{ session.get('user_name') }}. Here are the complaints you've reported.</p>
+      </div>
+      <a href="{{ url_for('citizen.report_damage') }}" class="btn rr-btn-primary">Report road damage</a>
+    </div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-6 col-lg-3">
+        <div class="rr-stat-card">
+          <div class="rr-stat-number">{{ summary.total }}</div>
+          <div class="rr-stat-label">Total complaints</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="rr-stat-card">
+          <div class="rr-stat-number">{{ summary.under_review }}</div>
+          <div class="rr-stat-label">Under review</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="rr-stat-card">
+          <div class="rr-stat-number">{{ summary.being_repaired }}</div>
+          <div class="rr-stat-label">Being repaired</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="rr-stat-card">
+          <div class="rr-stat-number">{{ summary.resolved }}</div>
+          <div class="rr-stat-label">Resolved</div>
+        </div>
+      </div>
+    </div>
+
+    {% if complaints %}
+    <div class="rr-auth-card p-0">
+      <div class="table-responsive">
+        <table class="table rr-table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Complaint ID</th>
+              <th>Category</th>
+              <th>Submitted</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in complaints %}
+            <tr>
+              <td class="rr-complaint-id">{{ c.complaint_id }}</td>
+              <td>{{ c.damage_category }}</td>
+              <td>{{ c.created_at.strftime('%d %b %Y') }}</td>
+              <td>{{ c.location_name }}</td>
+              <td><span class="rr-complaint-status">{{ c.status }}</span></td>
+              <td class="text-end">
+                <a href="{{ url_for('tracking.track', complaint_id=c.complaint_id) }}"
+                   class="btn rr-btn-outline btn-sm">View details</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="rr-empty-state text-center">
+      <p class="mb-3">You haven't reported any road damage yet.</p>
+      <a href="{{ url_for('citizen.report_damage') }}" class="btn rr-btn-primary">Report your first complaint</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

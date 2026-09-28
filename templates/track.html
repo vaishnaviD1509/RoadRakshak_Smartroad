@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Track Complaint — Road Rakshak{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+
+        <div class="rr-auth-card mb-4">
+          <h1 class="rr-h2 mb-1">Track your complaint</h1>
+          <p class="rr-body-text mb-3">Enter your complaint ID to see its current status.</p>
+
+          <form method="GET" action="{{ url_for('tracking.track') }}" class="d-flex flex-wrap gap-2" novalidate>
+            <input type="text" class="form-control" style="max-width: 260px;" name="complaint_id"
+                   placeholder="e.g. RR-3F9A21B4"
+                   value="{{ searched_id or '' }}">
+            <button type="submit" class="btn rr-btn-primary">Track</button>
+          </form>
+
+          {% if error %}
+          <div class="alert alert-warning mt-3 mb-0" role="alert">{{ error }}</div>
+          {% endif %}
+        </div>
+
+        {% if complaint %}
+        <div class="rr-auth-card">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div>
+              <div class="rr-confirm-label">Complaint ID</div>
+              <div class="rr-confirm-id" style="font-size: 1.2rem;">{{ complaint.complaint_id }}</div>
+            </div>
+            <div class="text-end">
+              <div class="rr-confirm-label">Submitted</div>
+              <div class="rr-confirm-value">{{ complaint.created_at.strftime('%d %b %Y, %H:%M') }} UTC</div>
+            </div>
+          </div>
+
+          {% if complaint.status == "Rejected" %}
+          <div class="alert alert-danger" role="alert">
+            <strong>This complaint was rejected.</strong>
+            {% if rejection_remarks %}
+              <div class="mt-1">{{ rejection_remarks }}</div>
+            {% else %}
+              <div class="mt-1">No reason was recorded.</div>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="rr-confirm-label mb-2">Status timeline</div>
+          <div class="rr-timeline mb-4">
+            {% set current_index = status_order.index(complaint.status) if complaint.status in status_order else -1 %}
+            {% for step in status_order %}
+            <div class="rr-timeline-step {% if loop.index0 <= current_index %}rr-timeline-step-done{% endif %} {% if loop.index0 == current_index %}rr-timeline-step-current{% endif %}">
+              <div class="rr-timeline-dot"></div>
+              <div class="rr-timeline-label">{{ step }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <div class="row g-3 mb-4">
+            <div class="col-sm-6">
+              <div class="rr-confirm-label">Category</div>
+              <div class="rr-confirm-value">{{ complaint.damage_category }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="rr-confirm-label">Current status</div>
+              <div class="rr-confirm-value"><span class="rr-complaint-status">{{ complaint.status }}</span></div>
+            </div>
+            <div class="col-sm-6">
+              <div class="rr-confirm-label">Location</div>
+              <div class="rr-confirm-value">{{ complaint.location_name }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="rr-confirm-label">Assigned team</div>
+              <div class="rr-confirm-value">{{ complaint.assigned_team or "Not yet assigned" }}</div>
+            </div>
+            <div class="col-12">
+              <div class="rr-confirm-label">Description</div>
+              <div class="rr-confirm-value">{{ complaint.description }}</div>
+            </div>
+          </div>
+
+          {% if complaint.image_path %}
+          <div class="mb-4">
+            <div class="rr-confirm-label mb-2">Uploaded photograph</div>
+            <img src="{{ url_for('citizen.uploaded_file', filename=complaint.image_path) }}"
+                 alt="Uploaded photo of the reported damage" class="rr-image-preview">
+          </div>
+          {% endif %}
+
+          <div class="rr-ai-note mb-4">
+            {% if complaint.ai_admin_reviewed %}
+              <strong>Reviewed by an administrator:</strong> classified as {{ complaint.ai_prediction }}.
+            {% elif complaint.ai_prediction %}
+              <strong>Preliminary AI detection:</strong> {{ complaint.ai_prediction }}
+              ({{ "%.1f"|format(complaint.ai_confidence * 100) }}% confidence).
+              This is not a confirmed finding.
+            {% else %}
+              No confirmed AI detection is available for this complaint.
+            {% endif %}
+          </div>
+
+          <div class="rr-confirm-label mb-2">Updates &amp; administrator remarks</div>
+          {% if updates %}
+            <ul class="rr-update-list">
+              {% for u in updates %}
+              <li class="rr-update-item">
+                <div class="rr-update-header">
+                  <span class="rr-update-status">
+                    {% if u.previous_status and u.previous_status != u.new_status %}{{ u.previous_status }} &rarr; {% endif %}{{ u.new_status }}{% if u.previous_status == u.new_status %} (note){% endif %}
+                  </span>
+                  <span class="rr-update-date">{{ u.created_at.strftime('%d %b %Y, %H:%M') }} UTC</span>
+                </div>
+                {% if u.remarks %}<div class="rr-update-remarks">{{ u.remarks }}</div>{% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="rr-body-text">No updates recorded yet.</p>
+          {% endif %}
+
+          <div class="rr-confirm-label mb-2 mt-4">Repair evidence</div>
+          {% if complaint.repair_evidence %}
+            <div class="row g-3">
+              {% for evidence in complaint.repair_evidence %}
+              <div class="col-sm-6">
+                <img src="{{ url_for('citizen.uploaded_file', filename=evidence.image_path) }}"
+                     alt="Repair evidence photo" class="rr-image-preview">
+                {% if evidence.description %}<p class="rr-form-hint mt-1 mb-0">{{ evidence.description }}</p>{% endif %}
+                <p class="rr-form-hint mb-0">{{ evidence.created_at.strftime('%d %b %Y, %H:%M') }} UTC</p>
+              </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="rr-body-text">No repair evidence has been uploaded yet.</p>
+          {% endif %}
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

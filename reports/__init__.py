@@ -1,0 +1,1 @@
+# PDF generation lives here (Stage 10: reports/pdf_generator.py).

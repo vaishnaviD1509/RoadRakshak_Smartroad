@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Review {{ complaint.complaint_id }} — Road Rakshak{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    <a href="{{ url_for('admin.dashboard') }}" class="rr-form-hint d-inline-block mb-2">&larr; Back to all complaints</a>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+      <div>
+        <div class="rr-confirm-label">Complaint</div>
+        <div class="rr-confirm-id mt-0" style="font-size: 1.4rem;">{{ complaint.complaint_id }}</div>
+      </div>
+      <span class="rr-complaint-status">{{ complaint.status }}</span>
+    </div>
+
+    <div class="row g-4">
+      <!-- Left: what was reported -->
+      <div class="col-lg-7">
+        <div class="rr-auth-card mb-4">
+          <h2 class="rr-h3 mb-3">Report</h2>
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6"><div class="rr-confirm-label">Reported by</div><div class="rr-confirm-value">{{ complaint.submitted_by.name }}<br><span class="rr-form-hint">{{ complaint.submitted_by.email }}</span></div></div>
+            <div class="col-sm-6"><div class="rr-confirm-label">Submitted</div><div class="rr-confirm-value">{{ complaint.created_at.strftime('%d %b %Y, %H:%M') }} UTC</div></div>
+            <div class="col-sm-6"><div class="rr-confirm-label">Category (citizen's choice)</div><div class="rr-confirm-value">{{ complaint.damage_category }}</div></div>
+            <div class="col-sm-6"><div class="rr-confirm-label">Location</div><div class="rr-confirm-value">{{ complaint.location_name }}</div></div>
+            <div class="col-12"><div class="rr-confirm-label">Description</div><div class="rr-confirm-value">{{ complaint.description }}</div></div>
+          </div>
+          {% if complaint.image_path %}
+          <div class="rr-confirm-label mb-2">Photograph</div>
+          <img src="{{ url_for('citizen.uploaded_file', filename=complaint.image_path) }}"
+               alt="Photo of the reported damage" class="rr-image-preview">
+          {% endif %}
+        </div>
+
+        <div class="rr-auth-card mb-4">
+          <h2 class="rr-h3 mb-3">Location</h2>
+          {% if map_points %}
+            <div id="adminMap" class="rr-report-map"></div>
+          {% else %}
+            <div class="rr-empty-state">No map coordinates were recorded for this complaint.</div>
+          {% endif %}
+        </div>
+
+        <div class="rr-auth-card">
+          <h2 class="rr-h3 mb-3">History</h2>
+          {% if updates %}
+          <ul class="rr-update-list">
+            {% for u in updates %}
+            <li class="rr-update-item">
+              <div class="rr-update-header">
+                <span class="rr-update-status">
+                  {% if u.previous_status and u.previous_status != u.new_status %}{{ u.previous_status }} &rarr; {% endif %}{{ u.new_status }}{% if u.previous_status == u.new_status %} (note){% endif %}
+                </span>
+                <span class="rr-update-date">{{ u.created_at.strftime('%d %b %Y, %H:%M') }} UTC{% if u.updated_by and names.get(u.updated_by) %} &middot; {{ names[u.updated_by] }}{% endif %}</span>
+              </div>
+              {% if u.remarks %}<div class="rr-update-remarks">{{ u.remarks }}</div>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="rr-body-text mb-0">No history yet.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Right: what the admin can do -->
+      <div class="col-lg-5">
+        <div class="rr-auth-card mb-4">
+          <h2 class="rr-h3 mb-3">AI classification</h2>
+          <div class="rr-ai-note mb-3">
+            {% if complaint.ai_admin_reviewed %}
+              <strong>Set by an administrator:</strong> {{ complaint.ai_prediction }}
+            {% elif complaint.ai_prediction %}
+              <strong>Preliminary AI result:</strong> {{ complaint.ai_prediction }}
+              ({{ "%.1f"|format(complaint.ai_confidence * 100) }}% confidence). Not a confirmed finding.
+            {% else %}
+              No AI result is available for this photo.
+            {% endif %}
+          </div>
+          <form method="POST" action="{{ url_for('admin.review_classification', complaint_id=complaint.complaint_id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label" for="classification">Confirm or correct the classification</label>
+            <div class="d-flex gap-2">
+              <select class="form-select" id="classification" name="classification" required>
+                {% for cat in categories %}
+                <option value="{{ cat }}" {% if cat == (complaint.ai_prediction or complaint.damage_category) %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn rr-btn-outline">Save</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="rr-auth-card mb-4">
+          <h2 class="rr-h3 mb-3">Review &amp; status</h2>
+          <form method="POST" action="{{ url_for('admin.update_status', complaint_id=complaint.complaint_id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label" for="status">Status</label>
+              <select class="form-select" id="status" name="status">
+                {% for s in statuses %}
+                <option value="{{ s }}" {% if s == complaint.status %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Rejecting needs a reason. Repair statuses need an assigned team. A complaint must be verified before it can be resolved.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="assigned_team">Assigned team</label>
+              <input type="text" class="form-control" id="assigned_team" name="assigned_team" maxlength="120"
+                     value="{{ complaint.assigned_team or '' }}" placeholder="e.g. Roads Maintenance – Ward 12">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="remarks">Remarks</label>
+              <textarea class="form-control" id="remarks" name="remarks" rows="3" maxlength="2000"
+                        placeholder="Visible to the citizen on the tracking page"></textarea>
+            </div>
+            <button type="submit" class="btn rr-btn-primary w-100">Save update</button>
+          </form>
+        </div>
+
+        <div class="rr-auth-card">
+          <h2 class="rr-h3 mb-3">Repair photos</h2>
+          {% if complaint.repair_evidence %}
+          <div class="row g-2 mb-3">
+            {% for e in complaint.repair_evidence %}
+            <div class="col-6">
+              <img src="{{ url_for('citizen.uploaded_file', filename=e.image_path) }}" alt="{{ e.description or 'Repair photo' }}" class="rr-image-preview" style="width:100%; height:120px;">
+              <div class="rr-form-hint mt-1">{{ e.description }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="rr-body-text">No repair photos uploaded yet.</p>
+          {% endif %}
+          <form method="POST" enctype="multipart/form-data"
+                action="{{ url_for('admin.upload_evidence', complaint_id=complaint.complaint_id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-2">
+              <label class="form-label" for="kind">Photo type</label>
+              <select class="form-select" id="kind" name="kind">
+                {% for k in evidence_kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="evidencePhoto">Photo</label>
+              <input type="file" class="form-control" id="evidencePhoto" name="photo" accept=".jpg,.jpeg,.png" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="note">Note (optional)</label>
+              <input type="text" class="form-control" id="note" name="note" maxlength="200">
+            </div>
+            <button type="submit" class="btn rr-btn-outline w-100">Upload photo</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script id="mapData" type="application/json">{{ map_points|tojson }}</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

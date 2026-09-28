@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Report Road Damage — Road Rakshak{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="rr-auth-card">
+          <h1 class="rr-h2 mb-1">Report road damage</h1>
+          <p class="rr-body-text mb-4">
+            Upload a photo, mark the location on the map, and describe the problem.
+            You'll get a unique complaint ID to track its progress.
+          </p>
+
+          <form method="POST" action="{{ url_for('citizen.report_damage') }}"
+                enctype="multipart/form-data" id="reportForm" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="form_token" value="{{ form_token }}">
+            <input type="hidden" name="latitude" id="latitude" value="{{ form_data.get('latitude', '') }}">
+            <input type="hidden" name="longitude" id="longitude" value="{{ form_data.get('longitude', '') }}">
+
+            <div class="mb-3">
+              <label class="form-label" for="photo">Photograph of the damage</label>
+              <input type="file" class="form-control" id="photo" name="photo"
+                     accept=".jpg,.jpeg,.png" required>
+              <div class="form-text">JPG, JPEG, or PNG. Max 5 MB.</div>
+              <div id="imagePreviewWrap" class="mt-2 d-none">
+                <img id="imagePreview" alt="Selected photo preview" class="rr-image-preview">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="damage_category">Damage category</label>
+              <select class="form-select" id="damage_category" name="damage_category" required>
+                <option value="" disabled {% if not form_data.get('damage_category') %}selected{% endif %}>
+                  Select a category
+                </option>
+                {% for category in damage_categories %}
+                <option value="{{ category }}" {% if form_data.get('damage_category') == category %}selected{% endif %}>
+                  {{ category }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="description">Description</label>
+              <textarea class="form-control" id="description" name="description" rows="4"
+                        placeholder="Describe what you see - size, severity, any hazard it poses..."
+                        required>{{ form_data.get('description', '') }}</textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="location_name">Road / area name</label>
+              <input type="text" class="form-control" id="location_name" name="location_name"
+                     value="{{ form_data.get('location_name', '') }}"
+                     placeholder="e.g. MG Road, near City Hospital" required>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label">Pin the exact location</label>
+              <p class="rr-form-hint">Click on the map to drop a pin, or use your current location.</p>
+              <button type="button" id="gpsButton" class="btn rr-btn-outline btn-sm mb-2">
+                Use my current location
+              </button>
+              <div id="reportMap" class="rr-report-map"></div>
+              <div id="mapCoordsText" class="rr-form-hint mt-1">No location selected yet.</div>
+            </div>
+
+            <div id="aiNoticeBox" class="rr-ai-note mb-4">
+              AI analysis will run automatically after submission, if a trained detection
+              model is available. This is a preliminary check only - every complaint is
+              still reviewed by an administrator.
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn rr-btn-primary btn-lg w-100">
+              <span id="submitBtnText">Submit complaint</span>
+              <span id="submitSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/report.js') }}"></script>
+{% endblock %}

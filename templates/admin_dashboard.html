@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Admin dashboard — Road Rakshak{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+      <div>
+        <h1 class="rr-h2 mb-1">Admin dashboard</h1>
+        <p class="rr-body-text mb-0">Review, verify, assign, and resolve reported road damage.</p>
+      </div>
+    </div>
+
+    <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-xl-5 mb-4">
+      <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.total }}</div><div class="rr-stat-label">Total complaints</div></div></div>
+      <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.new }}</div><div class="rr-stat-label">New</div></div></div>
+      <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.awaiting_verification }}</div><div class="rr-stat-label">Awaiting verification</div></div></div>
+      <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.assigned }}</div><div class="rr-stat-label">Assigned or in repair</div></div></div>
+      <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.resolved }}</div><div class="rr-stat-label">Resolved</div></div></div>
+    </div>
+
+    <div class="rr-auth-card mb-4">
+      <h2 class="rr-h3 mb-3">Complaint locations</h2>
+      {% if map_points %}
+        <div id="adminMap" class="rr-report-map"></div>
+        <p class="rr-form-hint mt-2 mb-0">Showing {{ map_points|length }} complaint{{ '' if map_points|length == 1 else 's' }} with a location. Click a marker for details.</p>
+      {% else %}
+        <div class="rr-empty-state">No complaints with a map location yet.</div>
+      {% endif %}
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+      <h2 class="rr-h3 mb-0">All complaints</h2>
+      <form method="GET" action="{{ url_for('admin.dashboard') }}" class="d-flex gap-2">
+        <select name="status" class="form-select form-select-sm" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          {% for s in statuses %}
+          <option value="{{ s }}" {% if s == status_filter %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn rr-btn-outline btn-sm">Filter</button>
+      </form>
+    </div>
+
+    {% if complaints %}
+    <div class="rr-auth-card p-0">
+      <div class="table-responsive">
+        <table class="table rr-table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Complaint ID</th>
+              <th>Submitted</th>
+              <th>Category</th>
+              <th>Location</th>
+              <th>AI prediction</th>
+              <th>Review status</th>
+              <th>Assigned team</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in complaints %}
+            <tr>
+              <td class="rr-complaint-id">{{ c.complaint_id }}</td>
+              <td>{{ c.created_at.strftime('%d %b %Y') }}</td>
+              <td>{{ c.damage_category }}</td>
+              <td>{{ c.location_name }}</td>
+              <td>
+                {% if c.ai_admin_reviewed %}
+                  {{ c.ai_prediction }} <span class="rr-form-hint">(admin)</span>
+                {% elif c.ai_prediction %}
+                  {{ c.ai_prediction }} <span class="rr-form-hint">{{ "%.0f"|format(c.ai_confidence * 100) }}%</span>
+                {% else %}
+                  <span class="rr-form-hint">&mdash;</span>
+                {% endif %}
+              </td>
+              <td><span class="rr-complaint-status">{{ c.status }}</span></td>
+              <td>{{ c.assigned_team or "—" }}</td>
+              <td class="text-end">
+                <a href="{{ url_for('admin.complaint_detail', complaint_id=c.complaint_id) }}" class="btn rr-btn-primary btn-sm">Review</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if pagination.pages > 1 %}
+    <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Complaint pages">
+      <div>
+        {% if pagination.has_prev %}
+        <a class="btn rr-btn-outline btn-sm" href="{{ url_for('admin.dashboard', page=pagination.prev_num, status=status_filter or None) }}">&larr; Newer</a>
+        {% endif %}
+      </div>
+      <span class="rr-form-hint">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+      <div>
+        {% if pagination.has_next %}
+        <a class="btn rr-btn-outline btn-sm" href="{{ url_for('admin.dashboard', page=pagination.next_num, status=status_filter or None) }}">Older &rarr;</a>
+        {% endif %}
+      </div>
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="rr-empty-state text-center">
+      {% if status_filter %}No complaints with the status "{{ status_filter }}".{% else %}No complaints have been submitted yet.{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<script id="mapData" type="application/json">{{ map_points|tojson }}</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}
