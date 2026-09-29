@@ -28,6 +28,9 @@ def create_app(config_class: type = Config) -> Flask:
     from routes.admin_routes import admin_bp
     app.register_blueprint(admin_bp)
 
+    from routes.map_routes import map_bp
+    app.register_blueprint(map_bp)
+
     from routes.csrf import register_csrf
     register_csrf(app)
 

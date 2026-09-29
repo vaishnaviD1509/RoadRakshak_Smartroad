@@ -26,7 +26,7 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('citizen.report_damage') }}">Report Damage</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('tracking.track') }}">Track Complaint</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" title="Coming in Stage 8">Live Map</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('map.view') }}">Live Map</a></li>
         <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
         {% if session.get('role') == 'admin' %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.dashboard') }}">Admin</a></li>

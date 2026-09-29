@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Live map — Road Rakshak{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    <h1 class="rr-h2 mb-1">Live road damage map</h1>
+    <p class="rr-body-text mb-4">
+      Every reported complaint with a location, in one place. Marker details are limited to
+      what's needed to identify a report - full details need logging in as the reporter or
+      an admin.
+    </p>
+
+    <div class="rr-auth-card mb-4">
+      <form id="mapFilters" class="row g-3 align-items-end">
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label" for="filterComplaintId">Complaint ID</label>
+          <input type="text" class="form-control" id="filterComplaintId" placeholder="e.g. RR-3F9A21B4">
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label" for="filterCategory">Damage category</label>
+          <select class="form-select" id="filterCategory">
+            <option value="">All categories</option>
+            {% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label" for="filterStatus">Status</label>
+          <select class="form-select" id="filterStatus">
+            <option value="">All statuses</option>
+            {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label" for="filterFrom">From date</label>
+          <input type="date" class="form-control" id="filterFrom">
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label" for="filterTo">To date</label>
+          <input type="date" class="form-control" id="filterTo">
+        </div>
+        <div class="col-12 d-flex gap-2">
+          <button type="submit" class="btn rr-btn-primary">Apply filters</button>
+          <button type="button" id="clearFilters" class="btn rr-btn-outline">Clear</button>
+          <span id="filterCount" class="rr-form-hint align-self-center ms-2"></span>
+        </div>
+      </form>
+    </div>
+
+    <div class="rr-auth-card">
+      <div id="liveMap" class="rr-report-map" style="height: 480px;"></div>
+      <div id="mapEmptyState" class="rr-empty-state text-center mt-3 d-none">
+        No complaints match these filters.
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+{% endblock %}

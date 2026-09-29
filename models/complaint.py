@@ -1,40 +1,60 @@
-import pytest
-
+import uuid
+from datetime import datetime, timezone
 from models import db
-from models.user import User
-from services.user_service import create_or_promote_admin
 
 
-def test_creates_a_new_admin(app):
-    with app.app_context():
-        user, created = create_or_promote_admin("New.Admin@Example.com", name="New Admin", password="longenough1")
-        assert created is True
-        assert user.email == "new.admin@example.com"
-        assert user.role == "admin"
-        assert user.check_password("longenough1")
-        assert user.password_hash != "longenough1"
+def generate_complaint_id() -> str:
+    """Generate a short, human-shareable complaint ID, e.g. RR-3F9A21B4."""
+    return f"RR-{uuid.uuid4().hex[:8].upper()}"
 
 
-def test_promoting_an_existing_user_keeps_their_password(app):
-    with app.app_context():
-        existing = User(name="Already Here", email="here@example.com", role="citizen")
-        existing.set_password("theirOwnPassword1")
-        db.session.add(existing)
-        db.session.commit()
+class Complaint(db.Model):
+    __tablename__ = "complaints"
 
-        user, created = create_or_promote_admin("here@example.com")
-        assert created is False
-        assert user.role == "admin"
-        assert user.check_password("theirOwnPassword1")
+    id = db.Column(db.Integer, primary_key=True)
+    complaint_id = db.Column(
+        db.String(20), unique=True, nullable=False, default=generate_complaint_id, index=True
+    )
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
+    damage_category = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    location_name = db.Column(db.String(255), nullable=False)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    image_path = db.Column(db.String(255), nullable=True)
 
-@pytest.mark.parametrize("kwargs, message", [
-    ({"email": "not-an-email", "name": "X", "password": "longenough1"}, "valid email"),
-    ({"email": "a@example.com", "name": "", "password": "longenough1"}, "name is required"),
-    ({"email": "a@example.com", "name": "X", "password": "short"}, "at least 8"),
-])
-def test_invalid_input_is_refused(app, kwargs, message):
-    with app.app_context():
-        with pytest.raises(ValueError, match=message):
-            create_or_promote_admin(**kwargs)
-        assert User.query.count() == 0
+    ai_prediction = db.Column(db.String(255), nullable=True)
+    ai_confidence = db.Column(db.Float, nullable=True)
+
+    status = db.Column(db.String(30), nullable=False, default="Submitted")
+    assigned_team = db.Column(db.String(120), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    updates = db.relationship(
+        "ComplaintUpdate", backref="complaint", lazy=True, cascade="all, delete-orphan",
+        order_by="ComplaintUpdate.created_at",
+    )
+    repair_evidence = db.relationship(
+        "RepairEvidence", backref="complaint", lazy=True, cascade="all, delete-orphan",
+        order_by="RepairEvidence.created_at",
+    )
+
+    @property
+    def ai_admin_reviewed(self) -> bool:
+        """True when an administrator set the classification themselves.
+
+        A genuine model result always has a confidence score; once an admin
+        corrects it, the score no longer applies and is cleared, so a
+        prediction with no confidence means "set by a human reviewer".
+        """
+        return self.ai_prediction is not None and self.ai_confidence is None
+
+    def __repr__(self):
+        return f"<Complaint {self.complaint_id} [{self.status}]>"
