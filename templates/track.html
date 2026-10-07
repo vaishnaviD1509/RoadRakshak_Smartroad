@@ -36,6 +36,10 @@
             </div>
           </div>
 
+          <div class="text-end mb-3">
+            <a href="{{ url_for('citizen.download_complaint_pdf', complaint_id=complaint.complaint_id) }}" class="btn rr-btn-outline btn-sm">Download PDF</a>
+          </div>
+
           {% if complaint.status == "Rejected" %}
           <div class="alert alert-danger" role="alert">
             <strong>This complaint was rejected.</strong>

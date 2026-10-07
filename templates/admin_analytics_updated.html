@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Analytics — Road Rakshak{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="rr-h2 mb-0">Analytics</h1>
+      <a href="{{ url_for('admin.dashboard') }}" class="btn rr-btn-outline">Back to dashboard</a>
+    </div>
+
+    <div class="rr-auth-card mb-4">
+      <form id="analyticsFilters" class="row g-3 align-items-end">
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label" for="filterCategory">Damage category</label>
+          <select class="form-select" id="filterCategory">
+            <option value="">All categories</option>
+            {% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label" for="filterFrom">From date</label>
+          <input type="date" class="form-control" id="filterFrom">
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label" for="filterTo">To date</label>
+          <input type="date" class="form-control" id="filterTo">
+        </div>
+        <div class="col-12 d-flex gap-2">
+          <button type="submit" class="btn rr-btn-primary">Apply filters</button>
+          <button type="button" id="clearFilters" class="btn rr-btn-outline">Clear</button>
+          <a id="downloadSummaryPdf" href="{{ url_for('admin.download_summary_pdf') }}" class="btn rr-btn-outline ms-auto">Download summary PDF</a>
+          <span id="totalLabel" class="rr-form-hint align-self-center ms-2"></span>
+        </div>
+      </form>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="rr-auth-card">
+          <h2 class="rr-h3">Complaints by damage category</h2>
+          <canvas id="categoryChart" height="260"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="rr-auth-card">
+          <h2 class="rr-h3">Complaints by status</h2>
+          <canvas id="statusChart" height="260"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-8">
+        <div class="rr-auth-card">
+          <h2 class="rr-h3">Complaints submitted over time (last 30 days)</h2>
+          <canvas id="timelineChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="rr-auth-card">
+          <h2 class="rr-h3">Resolved vs unresolved</h2>
+          <canvas id="resolvedChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div id="analyticsEmptyState" class="rr-empty-state text-center mt-4 d-none">
+      No complaints match these filters.
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+{% endblock %}

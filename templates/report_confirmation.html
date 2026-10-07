@@ -57,6 +57,7 @@
 
           <div class="d-flex flex-wrap gap-3 justify-content-center mt-4">
             <a href="{{ url_for('tracking.track', complaint_id=complaint.complaint_id) }}" class="btn rr-btn-outline">Track this complaint</a>
+            <a href="{{ url_for('citizen.download_complaint_pdf', complaint_id=complaint.complaint_id) }}" class="btn rr-btn-outline">Download PDF</a>
             <a href="{{ url_for('citizen.report_damage') }}" class="btn rr-btn-outline">Report another</a>
             <a href="{{ url_for('main.index') }}" class="btn rr-btn-primary">Back to home</a>
           </div>
