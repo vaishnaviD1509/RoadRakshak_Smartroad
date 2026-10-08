@@ -17,6 +17,8 @@ citizen_bp = Blueprint("citizen", __name__)
 UNDER_REVIEW_STATUSES = {"Submitted", "Under Review"}
 BEING_REPAIRED_STATUSES = {"Assigned for Repair", "Repair in Progress"}
 
+FORM_TOKEN_NAME = "report_damage"
+
 
 @citizen_bp.route("/report", methods=["GET", "POST"])
 @login_required
@@ -24,12 +26,22 @@ def report_damage():
     categories = current_app.config["DAMAGE_CATEGORIES"]
 
     if request.method == "POST":
+        submitted_token = request.form.get("form_token", "")
+        if not consume_form_token(FORM_TOKEN_NAME, submitted_token):
+            flash("This form has already been submitted or has expired. Please try again.", "danger")
+            return render_template(
+                "report.html",
+                damage_categories=categories,
+                form_data=request.form,
+                form_token=get_form_token(FORM_TOKEN_NAME),
+            ), 400
+
         damage_category = request.form.get("damage_category", "")
         description = request.form.get("description", "").strip()
         location_name = request.form.get("location_name", "").strip()
         latitude = request.form.get("latitude") or None
         longitude = request.form.get("longitude") or None
-        image = request.files.get("image")
+        image = request.files.get("photo")
 
         errors = []
         if damage_category not in categories:
@@ -38,30 +50,64 @@ def report_damage():
             errors.append("Please describe the issue.")
         if not location_name:
             errors.append("Please provide a location.")
+        if not latitude or not longitude:
+            errors.append("Please pin the location on the map.")
 
         if errors:
             for e in errors:
                 flash(e, "danger")
-            return render_template("report.html", categories=categories, form_data=request.form)
+            return render_template(
+                "report.html",
+                damage_categories=categories,
+                form_data=request.form,
+                form_token=get_form_token(FORM_TOKEN_NAME),
+            ), 400
 
         try:
-            saved_path = validate_and_save_image(
+            saved_filename = validate_and_save_image(
                 image, current_app.config["UPLOAD_FOLDER"], current_app.config["ALLOWED_EXTENSIONS"]
             )
         except ImageValidationError as exc:
             flash(str(exc), "danger")
-            return render_template("report.html", categories=categories, form_data=request.form)
+            return render_template(
+                "report.html",
+                damage_categories=categories,
+                form_data=request.form,
+                form_token=get_form_token(FORM_TOKEN_NAME),
+            ), 400
+
+        saved_path = os.path.join(current_app.config["UPLOAD_FOLDER"], saved_filename)
 
         # Reject uploads that look like scanned documents/receipts rather
         # than outdoor road photos, instead of just flagging them.
         if looks_like_document(saved_path):
             os.remove(saved_path)
-            flash("That image doesn't look like a road photo. Please upload a clear photo of the damage.", "danger")
-            return render_template("report.html", categories=categories, form_data=request.form)
+            flash("That image doesn't look like a photo of a road. Please upload a clear photo of the damage.", "danger")
+            return render_template(
+                "report.html",
+                damage_categories=categories,
+                form_data=request.form,
+                form_token=get_form_token(FORM_TOKEN_NAME),
+            ), 400
 
-        ai_prediction, ai_confidence = detect_damage(
+        result = detect_damage(
             saved_path, current_app.config["AI_MODEL_PATH"], current_app.config["AI_CONFIDENCE_THRESHOLD"]
         )
+
+        # detect_damage() also runs its own document check internally; if it
+        # caught something the pre-check above didn't, honor it the same way.
+        if result.get("available") and result.get("prediction") is None and result.get("message"):
+            message = result["message"]
+            if "look like a photo of a road" not in message:
+                message = message.rstrip(".") + ". It doesn't look like a photo of a road."
+            os.remove(saved_path)
+            flash(message, "danger")
+            return render_template(
+                "report.html",
+                damage_categories=categories,
+                form_data=request.form,
+                form_token=get_form_token(FORM_TOKEN_NAME),
+            ), 400
 
         complaint = create_complaint(
             user_id=session["user_id"],
@@ -70,13 +116,18 @@ def report_damage():
             location_name=location_name,
             latitude=float(latitude) if latitude else None,
             longitude=float(longitude) if longitude else None,
-            image_path=os.path.basename(saved_path),
-            ai_prediction=ai_prediction,
-            ai_confidence=ai_confidence,
+            image_filename=saved_filename,
+            ai_prediction=result.get("prediction"),
+            ai_confidence=result.get("confidence"),
         )
         return redirect(url_for("citizen.report_confirmation", complaint_id=complaint.complaint_id))
 
-    return render_template("report.html", categories=categories, form_data={})
+    return render_template(
+        "report.html",
+        damage_categories=categories,
+        form_data={},
+        form_token=get_form_token(FORM_TOKEN_NAME),
+    )
 
 
 @citizen_bp.route("/report/confirmation/<complaint_id>")
