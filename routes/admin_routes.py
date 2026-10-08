@@ -7,12 +7,12 @@ from sqlalchemy import func
 
 from models import db
 from models.complaint import Complaint
+from models.user import User
 from routes.decorators import admin_required
 from services.complaint_service import (EVIDENCE_KINDS, UpdateError,
                                           add_repair_evidence,
                                           apply_status_update,
                                           record_classification_review)
-from services.image_processing import ImageValidationError, validate_and_save_image
 from services.pdf_report import build_summary_pdf
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -20,19 +20,33 @@ admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 PAGE_SIZE = 15
 MAP_POINT_LIMIT = 500
 
+NEW_STATUSES = {"Submitted"}
+AWAITING_VERIFICATION_STATUSES = {"Under Review"}
+ASSIGNED_STATUSES = {"Assigned for Repair", "Repair in Progress"}
+RESOLVED_STATUSES = {"Resolved"}
+
+
+def _map_point(c):
+    return {
+        "id": c.complaint_id,
+        "category": c.damage_category,
+        "status": c.status,
+        "location": c.location_name,
+        "lat": c.latitude,
+        "lng": c.longitude,
+        "url": url_for("admin.complaint_detail", complaint_id=c.complaint_id),
+    }
+
 
 @admin_bp.route("/")
 @admin_required
 def dashboard():
     page = request.args.get("page", 1, type=int)
     status_filter = request.args.get("status", "")
-    category_filter = request.args.get("category", "")
 
     query = Complaint.query
     if status_filter in current_app.config["COMPLAINT_STATUSES"]:
         query = query.filter_by(status=status_filter)
-    if category_filter in current_app.config["DAMAGE_CATEGORIES"]:
-        query = query.filter_by(damage_category=category_filter)
 
     pagination = query.order_by(Complaint.created_at.desc()).paginate(
         page=page, per_page=PAGE_SIZE, error_out=False
@@ -40,12 +54,21 @@ def dashboard():
 
     summary = {
         "total": Complaint.query.count(),
-        "submitted": Complaint.query.filter_by(status="Submitted").count(),
-        "in_progress": Complaint.query.filter(
-            Complaint.status.in_(["Under Review", "Verified", "Assigned for Repair", "Repair in Progress"])
+        "new": Complaint.query.filter(Complaint.status.in_(NEW_STATUSES)).count(),
+        "awaiting_verification": Complaint.query.filter(
+            Complaint.status.in_(AWAITING_VERIFICATION_STATUSES)
         ).count(),
-        "resolved": Complaint.query.filter_by(status="Resolved").count(),
+        "assigned": Complaint.query.filter(Complaint.status.in_(ASSIGNED_STATUSES)).count(),
+        "resolved": Complaint.query.filter(Complaint.status.in_(RESOLVED_STATUSES)).count(),
     }
+
+    map_complaints = (
+        Complaint.query.filter(Complaint.latitude.isnot(None), Complaint.longitude.isnot(None))
+        .order_by(Complaint.created_at.desc())
+        .limit(MAP_POINT_LIMIT)
+        .all()
+    )
+    map_points = [_map_point(c) for c in map_complaints]
 
     return render_template(
         "admin_dashboard.html",
@@ -55,7 +78,7 @@ def dashboard():
         statuses=current_app.config["COMPLAINT_STATUSES"],
         categories=current_app.config["DAMAGE_CATEGORIES"],
         status_filter=status_filter,
-        category_filter=category_filter,
+        map_points=map_points,
     )
 
 
@@ -65,12 +88,19 @@ def complaint_detail(complaint_id):
     complaint = Complaint.query.filter_by(complaint_id=complaint_id).first()
     if not complaint:
         abort(404)
+
+    map_points = [_map_point(complaint)] if complaint.latitude and complaint.longitude else []
+    names = {u.id: u.name for u in User.query.all()}
+
     return render_template(
         "admin_complaint.html",
         complaint=complaint,
         statuses=current_app.config["COMPLAINT_STATUSES"],
         categories=current_app.config["DAMAGE_CATEGORIES"],
         evidence_kinds=EVIDENCE_KINDS,
+        map_points=map_points,
+        updates=complaint.updates,
+        names=names,
     )
 
 
@@ -84,10 +114,11 @@ def update_status(complaint_id):
     try:
         apply_status_update(
             complaint,
+            admin_id=session["user_id"],
             new_status=request.form.get("status", ""),
-            remarks=request.form.get("remarks", ""),
             assigned_team=request.form.get("assigned_team", ""),
-            updated_by=session.get("name", "Admin"),
+            remarks=request.form.get("remarks", ""),
+            valid_statuses=current_app.config["COMPLAINT_STATUSES"],
         )
         flash("Status updated.", "success")
     except UpdateError as exc:
@@ -96,21 +127,24 @@ def update_status(complaint_id):
     return redirect(url_for("admin.complaint_detail", complaint_id=complaint_id))
 
 
-@admin_bp.route("/complaints/<complaint_id>/review", methods=["POST"])
+@admin_bp.route("/complaints/<complaint_id>/classification", methods=["POST"])
 @admin_required
 def review_classification(complaint_id):
     complaint = Complaint.query.filter_by(complaint_id=complaint_id).first()
     if not complaint:
         abort(404)
 
-    confirmed = request.form.get("decision") == "confirm"
-    corrected_label = request.form.get("corrected_label", "")
+    try:
+        record_classification_review(
+            complaint,
+            admin_id=session["user_id"],
+            label=request.form.get("classification", ""),
+            valid_labels=current_app.config["DAMAGE_CATEGORIES"],
+        )
+        flash("Classification reviewed.", "success")
+    except UpdateError as exc:
+        flash(str(exc), "danger")
 
-    record_classification_review(
-        complaint, confirmed=confirmed, corrected_label=corrected_label,
-        updated_by=session.get("name", "Admin"),
-    )
-    flash("Classification reviewed.", "success")
     return redirect(url_for("admin.complaint_detail", complaint_id=complaint_id))
 
 
@@ -121,20 +155,18 @@ def upload_evidence(complaint_id):
     if not complaint:
         abort(404)
 
-    kind = request.form.get("kind", "")
-    notes = request.form.get("notes", "")
-    image = request.files.get("image")
-
     try:
-        saved_path = validate_and_save_image(
-            image, current_app.config["UPLOAD_FOLDER"], current_app.config["ALLOWED_EXTENSIONS"]
-        )
         add_repair_evidence(
-            complaint, kind=kind, image_path=os.path.basename(saved_path),
-            notes=notes, uploaded_by=session.get("name", "Admin"),
+            complaint,
+            admin_id=session["user_id"],
+            file_storage=request.files.get("photo"),
+            kind=request.form.get("kind", ""),
+            note=request.form.get("note", ""),
+            upload_folder=current_app.config["UPLOAD_FOLDER"],
+            allowed_extensions=current_app.config["ALLOWED_EXTENSIONS"],
         )
         flash("Evidence uploaded.", "success")
-    except (ImageValidationError, UpdateError) as exc:
+    except UpdateError as exc:
         flash(str(exc), "danger")
 
     return redirect(url_for("admin.complaint_detail", complaint_id=complaint_id))
