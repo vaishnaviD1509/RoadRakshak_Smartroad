@@ -5,6 +5,7 @@ from flask import (Blueprint, abort, current_app, flash, redirect,
                     session, url_for)
 
 from models.complaint import Complaint
+from models.repair_evidence import RepairEvidence
 from routes.csrf import consume_form_token, get_form_token
 from routes.decorators import login_required
 from services.complaint_service import create_complaint
@@ -162,6 +163,13 @@ def download_complaint_pdf(complaint_id):
 @login_required
 def uploaded_file(filename):
     complaint = Complaint.query.filter_by(image_path=filename).first()
+    if not complaint:
+        # Not a complaint's own photo - check whether it's a repair-evidence
+        # photo instead (those are stored under RepairEvidence.image_path,
+        # with their own filename, separate from the complaint's photo).
+        evidence = RepairEvidence.query.filter_by(image_path=filename).first()
+        if evidence:
+            complaint = evidence.complaint
     if not complaint:
         abort(404)
     is_owner = complaint.user_id == session["user_id"]
