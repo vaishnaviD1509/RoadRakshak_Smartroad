@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Log in — Road Rakshak{% endblock %}
+{% block title %}Citizen login — Road Rakshak{% endblock %}
 
 {% block content %}
 <section class="rr-auth-section">
@@ -7,27 +7,34 @@
     <div class="row justify-content-center">
       <div class="col-md-6 col-lg-5">
         <div class="rr-auth-card">
-          <h1 class="rr-h2 mb-1">Welcome back</h1>
+          <span class="rr-complaint-status mb-2">Citizen login</span>
+          <h1 class="rr-h2 mb-1 mt-2">Welcome back</h1>
           <p class="rr-body-text mb-4">Log in to submit and track your road damage complaints.</p>
 
-          <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+          <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="mb-3">
               <label class="form-label" for="email">Email address</label>
-              <input type="email" class="form-control" id="email" name="email" value="{{ email }}" required>
+              <input type="email" class="form-control" id="email" name="email"
+                     value="{{ email }}" autocomplete="username" required>
             </div>
 
             <div class="mb-4">
               <label class="form-label" for="password">Password</label>
-              <input type="password" class="form-control" id="password" name="password" required>
+              <input type="password" class="form-control" id="password" name="password"
+                     autocomplete="current-password" required>
             </div>
 
             <button type="submit" class="btn rr-btn-primary w-100">Log in</button>
           </form>
 
-          <p class="rr-body-text text-center mt-4 mb-0">
+          <p class="rr-body-text text-center mt-4 mb-2">
             Don't have an account? <a href="{{ url_for('auth.register') }}">Register</a>
+          </p>
+          <hr>
+          <p class="rr-form-hint text-center mb-0">
+            Municipal staff? <a href="{{ url_for('auth.municipal_login') }}">Go to the municipal login</a>
           </p>
         </div>
       </div>

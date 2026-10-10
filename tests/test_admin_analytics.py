@@ -45,7 +45,7 @@ def _add_complaint(app, **kwargs):
 
 def _login_admin(client, app, email="admin@example.com"):
     _make_admin(app, email)
-    return client.post("/login", data={"email": email, "password": "longenough1"}, follow_redirects=True)
+    return client.post("/municipal/login", data={"email": email, "password": "longenough1"}, follow_redirects=True)
 
 
 def test_analytics_page_requires_admin(client):

@@ -114,10 +114,10 @@ def test_admin_can_view_any_complaint(app, client):
     client.get("/logout")
     with client.session_transaction() as sess:
         csrf = sess.get("_csrf_token", "")
-    client.get("/login")
+    client.get("/municipal/login")
     with client.session_transaction() as sess:
         csrf = sess.get("_csrf_token", "")
-    client.post("/login", data={"email": "admin_user@example.com", "password": "longenough1", "csrf_token": csrf})
+    client.post("/municipal/login", data={"email": "admin_user@example.com", "password": "longenough1", "csrf_token": csrf})
 
     resp = client.get(f"/track?complaint_id={complaint_id}")
     assert resp.status_code == 200

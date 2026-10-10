@@ -52,6 +52,10 @@ def _login(client, email, password="longenough1"):
     return client.post("/login", data={"email": email, "password": password}, follow_redirects=True)
 
 
+def _login_admin(client, email, password="longenough1"):
+    return client.post("/municipal/login", data={"email": email, "password": password}, follow_redirects=True)
+
+
 # --- Citizen complaint PDF -------------------------------------------
 
 def test_complaint_pdf_requires_login(client):
@@ -140,7 +144,7 @@ def test_summary_pdf_requires_admin(app, client):
 
 def test_summary_pdf_downloads_for_admin(app, client):
     _make_admin(app)
-    _login(client, "pdfadmin@example.com")
+    _login_admin(client, "pdfadmin@example.com")
     _add_complaint(app, damage_category="Pothole")
     _add_complaint(app, damage_category="Road Cracks", status="Resolved")
 
@@ -153,7 +157,7 @@ def test_summary_pdf_downloads_for_admin(app, client):
 
 def test_summary_pdf_respects_category_filter(app, client):
     _make_admin(app)
-    _login(client, "pdfadmin@example.com")
+    _login_admin(client, "pdfadmin@example.com")
     _add_complaint(app, damage_category="Pothole")
     _add_complaint(app, damage_category="Waterlogging")
 
@@ -164,7 +168,7 @@ def test_summary_pdf_respects_category_filter(app, client):
 
 def test_summary_pdf_filename_includes_date_range(app, client):
     _make_admin(app)
-    _login(client, "pdfadmin@example.com")
+    _login_admin(client, "pdfadmin@example.com")
     _add_complaint(app)
 
     today = datetime.utcnow().strftime("%Y%m%d")
@@ -175,7 +179,7 @@ def test_summary_pdf_filename_includes_date_range(app, client):
 
 def test_summary_pdf_works_with_empty_database(app, client):
     _make_admin(app)
-    _login(client, "pdfadmin@example.com")
+    _login_admin(client, "pdfadmin@example.com")
 
     resp = client.get("/admin/reports/summary")
     assert resp.status_code == 200
