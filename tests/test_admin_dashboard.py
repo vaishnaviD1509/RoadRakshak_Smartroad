@@ -125,7 +125,7 @@ def test_csrf_is_enforced_on_admin_actions_outside_testing(setup):
 
 
 def test_admin_login_lands_on_admin_dashboard(app, client, setup):
-    resp = client.post("/login", data={"email": "admin@example.com", "password": "longenough1"})
+    resp = client.post("/municipal/login", data={"email": "admin@example.com", "password": "longenough1"})
     assert resp.status_code == 302
     assert resp.headers["Location"].endswith("/admin/")
 

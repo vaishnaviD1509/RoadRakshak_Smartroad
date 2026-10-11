@@ -20,6 +20,7 @@ To enable real detection:
      (this copies the trained weights to ai_models/road_damage_model.pt)
   4. Restart the app.
 """
+import importlib.util
 import os
 
 try:
@@ -110,6 +111,16 @@ def _load_model(model_path: str):
         _model_cache["model"] = None
 
     return _model_cache["model"]
+
+
+def ai_available(model_path: str) -> bool:
+    """True when AI detection can actually run: a model file exists and the
+    ultralytics library is installed. Used to describe AI honestly in the UI."""
+    return (
+        bool(model_path)
+        and os.path.isfile(model_path)
+        and importlib.util.find_spec("ultralytics") is not None
+    )
 
 
 def reset_model_cache():

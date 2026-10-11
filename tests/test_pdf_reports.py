@@ -41,7 +41,7 @@ def _add_complaint(app, **kwargs):
 
         update = ComplaintUpdate(
             complaint_id=c.id, previous_status=None, new_status="Submitted",
-            remarks="Report received.", updated_by="System",
+            remarks="Report received.", updated_by=None,
         )
         db.session.add(update)
         db.session.commit()
@@ -66,7 +66,7 @@ def test_complaint_pdf_requires_login(client):
 
 def test_complaint_pdf_downloads_for_owner(app, client):
     client.post("/register", data={
-        "name": "PDF Owner", "email": "pdfowner@example.com", "phone": "",
+        "name": "PDF Owner", "email": "pdfowner@example.com",
         "password": "longenough1", "confirm_password": "longenough1",
     }, follow_redirects=True)
     _login(client, "pdfowner@example.com")
@@ -97,7 +97,7 @@ def test_complaint_pdf_blocked_for_non_owner(app, client):
         complaint_id = c.complaint_id
 
     client.post("/register", data={
-        "name": "Snooper", "email": "snooper@example.com", "phone": "",
+        "name": "Snooper", "email": "snooper@example.com",
         "password": "longenough1", "confirm_password": "longenough1",
     }, follow_redirects=True)
     _login(client, "snooper@example.com")
@@ -108,7 +108,7 @@ def test_complaint_pdf_blocked_for_non_owner(app, client):
 
 def test_complaint_pdf_contains_status_history(app, client):
     client.post("/register", data={
-        "name": "History Owner", "email": "historyowner@example.com", "phone": "",
+        "name": "History Owner", "email": "historyowner@example.com",
         "password": "longenough1", "confirm_password": "longenough1",
     }, follow_redirects=True)
     _login(client, "historyowner@example.com")
@@ -120,7 +120,7 @@ def test_complaint_pdf_contains_status_history(app, client):
         db.session.commit()
         update = ComplaintUpdate(
             complaint_id=c.id, previous_status="Submitted", new_status="Under Review",
-            remarks="Being looked at.", updated_by="Admin",
+            remarks="Being looked at.", updated_by=None,
         )
         db.session.add(update)
         db.session.commit()

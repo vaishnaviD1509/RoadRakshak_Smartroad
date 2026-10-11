@@ -137,8 +137,13 @@
       </div>
       <div class="col-lg-6">
         <div class="rr-ai-note">
-          AI analysis will be available once a trained detection model is connected. Until then,
-          every complaint can still be submitted and is routed for manual review.
+          {% if ai_enabled %}
+            The AI model is active: each photo you upload gets a preliminary category and
+            confidence score. An administrator still reviews every complaint before any action is taken.
+          {% else %}
+            AI analysis is not switched on yet. Every complaint can still be submitted and goes
+            straight to an administrator for manual review.
+          {% endif %}
         </div>
       </div>
     </div>
@@ -221,9 +226,10 @@
     <h2 class="rr-h2">About Road Rakshak</h2>
     <p class="rr-body-text">
       Road Rakshak is a civic technology demonstration platform that lets citizens report road
-      damage and lets municipal staff track and manage repairs. It is built as a modular Flask
-      application and is being developed in stages; this build represents the foundation —
-      project structure, database models, and the landing page.
+      damage and lets municipal staff verify, assign, and resolve repairs. Citizens follow every
+      complaint through a clear status timeline, and an AI model gives a preliminary
+      classification that municipal administrators review. It is built as a modular Flask
+      application with separate logins for citizens and municipal staff.
     </p>
   </div>
 </section>
