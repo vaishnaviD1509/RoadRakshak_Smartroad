@@ -1,24 +1,40 @@
+import csv
+import io
 import os
 from datetime import datetime, timedelta
 
-from flask import (Blueprint, abort, current_app, flash, jsonify, redirect,
-                    render_template, request, send_file, session, url_for)
+from flask import (Blueprint, Response, abort, current_app, flash, jsonify,
+                    redirect, render_template, request, send_file, session,
+                    url_for)
 from sqlalchemy import func
 
 from models import db
-from models.complaint import Complaint
+from models.complaint import PRIORITIES, Complaint
 from models.user import User
 from routes.decorators import admin_required
+from services.complaint_search import (CSV_COLUMNS, NO_TEAM, SORTS,
+                                         active_filters, csv_row,
+                                         filtered_query, team_filter_options)
 from services.complaint_service import (EVIDENCE_KINDS, UpdateError,
                                           add_repair_evidence,
-                                          apply_status_update,
-                                          record_classification_review)
+                                          apply_status_update, mark_duplicate,
+                                          record_classification_review,
+                                          set_priority)
+from services.damage_detection import ai_available
+from services.duplicate_service import (DUPLICATE_RADIUS_METERS,
+                                          find_possible_duplicates)
 from services.pdf_report import build_summary_pdf
+from services.team_service import (active_team_names, create_team,
+                                     set_team_active, team_summaries,
+                                     unlisted_team_names)
+from services.user_service import (create_or_promote_admin, list_staff,
+                                     remove_admin_access)
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 PAGE_SIZE = 15
 MAP_POINT_LIMIT = 500
+EXPORT_LIMIT = 5000
 
 NEW_STATUSES = {"Submitted"}
 AWAITING_VERIFICATION_STATUSES = {"Under Review"}
@@ -38,17 +54,54 @@ def _map_point(c):
     }
 
 
+def _ai_status():
+    """What the AI detection panel on the dashboard shows: whether the model
+    can run right now, why not if it can't, and how complaints were classified."""
+    model_path = current_app.config["AI_MODEL_PATH"]
+    model_exists = os.path.isfile(model_path)
+    active = ai_available(model_path)
+
+    if active:
+        reason = "A trained model is loaded. New photos get a preliminary category and confidence score."
+    elif model_exists:
+        reason = ("A model file was found, but the ultralytics library is not installed. "
+                  "Run: python -m pip install -r requirements-ai.txt")
+    else:
+        reason = ("No trained model was found, so new complaints go straight to manual review. "
+                  "See ai_models/README.md to train one.")
+
+    model_updated = None
+    if model_exists:
+        model_updated = datetime.utcfromtimestamp(os.path.getmtime(model_path))
+
+    return {
+        "active": active,
+        "reason": reason,
+        "model_file": os.path.basename(model_path) if model_exists else None,
+        "model_updated": model_updated,
+        "threshold": current_app.config["AI_CONFIDENCE_THRESHOLD"],
+        # AI result with a confidence score = a genuine model prediction
+        "classified_by_ai": Complaint.query.filter(
+            Complaint.ai_prediction.isnot(None), Complaint.ai_confidence.isnot(None)
+        ).count(),
+        # a label with no score = set or corrected by an administrator
+        "set_by_admin": Complaint.query.filter(
+            Complaint.ai_prediction.isnot(None), Complaint.ai_confidence.is_(None)
+        ).count(),
+        "no_ai_result": Complaint.query.filter(Complaint.ai_prediction.is_(None)).count(),
+    }
+
+
 @admin_bp.route("/")
 @admin_required
 def dashboard():
     page = request.args.get("page", 1, type=int)
-    status_filter = request.args.get("status", "")
+    filters = active_filters(
+        request.args, current_app.config["COMPLAINT_STATUSES"], current_app.config["DAMAGE_CATEGORIES"]
+    )
+    status_filter = filters.get("status", "")
 
-    query = Complaint.query
-    if status_filter in current_app.config["COMPLAINT_STATUSES"]:
-        query = query.filter_by(status=status_filter)
-
-    pagination = query.order_by(Complaint.created_at.desc()).paginate(
+    pagination = filtered_query(filters).paginate(
         page=page, per_page=PAGE_SIZE, error_out=False
     )
 
@@ -60,6 +113,10 @@ def dashboard():
         ).count(),
         "assigned": Complaint.query.filter(Complaint.status.in_(ASSIGNED_STATUSES)).count(),
         "resolved": Complaint.query.filter(Complaint.status.in_(RESOLVED_STATUSES)).count(),
+        "urgent_open": Complaint.query.filter(
+            Complaint.priority.in_(("High", "Urgent")),
+            Complaint.status.notin_(("Resolved", "Rejected")),
+        ).count(),
     }
 
     map_complaints = (
@@ -78,7 +135,38 @@ def dashboard():
         statuses=current_app.config["COMPLAINT_STATUSES"],
         categories=current_app.config["DAMAGE_CATEGORIES"],
         status_filter=status_filter,
+        filters=filters,
+        priorities=PRIORITIES,
+        sorts=SORTS,
+        team_options=team_filter_options(),
+        no_team=NO_TEAM,
         map_points=map_points,
+        ai_status=_ai_status(),
+    )
+
+
+@admin_bp.route("/export.csv")
+@admin_required
+def export_csv():
+    """Download the complaints list (with whatever search and filters are
+    applied on the dashboard) as a spreadsheet-friendly CSV file."""
+    filters = active_filters(
+        request.args, current_app.config["COMPLAINT_STATUSES"], current_app.config["DAMAGE_CATEGORIES"]
+    )
+    complaints = filtered_query(filters).limit(EXPORT_LIMIT).all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(CSV_COLUMNS)
+    for c in complaints:
+        writer.writerow(csv_row(c))
+
+    filename = f"road-rakshak-complaints-{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    # The leading BOM makes Excel read non-English place names correctly.
+    return Response(
+        "\ufeff" + buffer.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -92,6 +180,12 @@ def complaint_detail(complaint_id):
     map_points = [_map_point(complaint)] if complaint.latitude and complaint.longitude else []
     names = {u.id: u.name for u in User.query.all()}
 
+    team_names = active_team_names()
+    # Keep a team typed in earlier selectable, so saving other changes
+    # doesn't quietly clear it.
+    if complaint.assigned_team and complaint.assigned_team not in team_names:
+        team_names = team_names + [complaint.assigned_team]
+
     return render_template(
         "admin_complaint.html",
         complaint=complaint,
@@ -101,6 +195,11 @@ def complaint_detail(complaint_id):
         map_points=map_points,
         updates=complaint.updates,
         names=names,
+        priorities=PRIORITIES,
+        team_names=team_names,
+        use_team_dropdown=bool(active_team_names()),
+        duplicates=find_possible_duplicates(complaint),
+        duplicate_radius=DUPLICATE_RADIUS_METERS,
     )
 
 
@@ -119,6 +218,7 @@ def update_status(complaint_id):
             assigned_team=request.form.get("assigned_team", ""),
             remarks=request.form.get("remarks", ""),
             valid_statuses=current_app.config["COMPLAINT_STATUSES"],
+            allowed_teams=active_team_names() or None,
         )
         flash("Status updated.", "success")
     except UpdateError as exc:
@@ -170,6 +270,112 @@ def upload_evidence(complaint_id):
         flash(str(exc), "danger")
 
     return redirect(url_for("admin.complaint_detail", complaint_id=complaint_id))
+
+
+@admin_bp.route("/complaints/<complaint_id>/priority", methods=["POST"])
+@admin_required
+def update_priority(complaint_id):
+    complaint = Complaint.query.filter_by(complaint_id=complaint_id).first()
+    if not complaint:
+        abort(404)
+
+    try:
+        set_priority(complaint, admin_id=session["user_id"], priority=request.form.get("priority", ""))
+        flash("Priority updated.", "success")
+    except UpdateError as exc:
+        flash(str(exc), "danger")
+
+    return redirect(url_for("admin.complaint_detail", complaint_id=complaint_id))
+
+
+@admin_bp.route("/complaints/<complaint_id>/duplicate", methods=["POST"])
+@admin_required
+def mark_as_duplicate(complaint_id):
+    complaint = Complaint.query.filter_by(complaint_id=complaint_id).first()
+    if not complaint:
+        abort(404)
+
+    original = Complaint.query.filter_by(complaint_id=request.form.get("original_id", "")).first()
+    try:
+        mark_duplicate(
+            complaint, admin_id=session["user_id"], original=original,
+            valid_statuses=current_app.config["COMPLAINT_STATUSES"],
+        )
+        flash(f"Marked as a duplicate of {original.complaint_id}.", "success")
+    except UpdateError as exc:
+        flash(str(exc), "danger")
+
+    return redirect(url_for("admin.complaint_detail", complaint_id=complaint_id))
+
+
+# --- Repair teams ----------------------------------------------------
+
+@admin_bp.route("/teams")
+@admin_required
+def teams():
+    return render_template(
+        "admin_teams.html", summaries=team_summaries(), unlisted=unlisted_team_names(),
+    )
+
+
+@admin_bp.route("/teams/add", methods=["POST"])
+@admin_required
+def add_team():
+    try:
+        team = create_team(request.form.get("name", ""))
+        flash(f'Team "{team.name}" is ready to use.', "success")
+    except UpdateError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("admin.teams"))
+
+
+@admin_bp.route("/teams/<int:team_id>/active", methods=["POST"])
+@admin_required
+def toggle_team(team_id):
+    turn_on = request.form.get("active") == "1"
+    try:
+        team = set_team_active(team_id, turn_on)
+        flash(f'Team "{team.name}" is now {"available" if turn_on else "switched off"}.', "success")
+    except UpdateError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("admin.teams"))
+
+
+# --- Staff accounts --------------------------------------------------
+
+@admin_bp.route("/staff")
+@admin_required
+def staff():
+    return render_template("admin_staff.html", staff_members=list_staff(), my_id=session["user_id"])
+
+
+@admin_bp.route("/staff/add", methods=["POST"])
+@admin_required
+def add_staff():
+    try:
+        user, created = create_or_promote_admin(
+            request.form.get("email", ""),
+            name=request.form.get("name", ""),
+            password=request.form.get("password", ""),
+        )
+        if created:
+            flash(f"Staff account created for {user.email}. Share the password with them securely.", "success")
+        else:
+            flash(f"{user.email} already had an account and now has staff access. Their password is unchanged.", "success")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("admin.staff"))
+
+
+@admin_bp.route("/staff/<int:user_id>/remove", methods=["POST"])
+@admin_required
+def remove_staff(user_id):
+    try:
+        user = remove_admin_access(user_id, acting_admin_id=session["user_id"])
+        flash(f"{user.email} no longer has staff access.", "success")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("admin.staff"))
 
 
 # --- Stage 9: analytics dashboard -----------------------------------

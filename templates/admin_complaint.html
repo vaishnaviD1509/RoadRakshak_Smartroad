@@ -8,13 +8,17 @@
 {% block content %}
 <section class="rr-section rr-section-grey">
   <div class="container">
+    {% set admin_active = 'dashboard' %}{% include "_admin_nav.html" %}
     <a href="{{ url_for('admin.dashboard') }}" class="rr-form-hint d-inline-block mb-2">&larr; Back to all complaints</a>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
       <div>
         <div class="rr-confirm-label">Complaint</div>
         <div class="rr-confirm-id mt-0" style="font-size: 1.4rem;">{{ complaint.complaint_id }}</div>
       </div>
-      <span class="rr-complaint-status">{{ complaint.status }}</span>
+      <div class="d-flex gap-2 align-items-center">
+        <span class="rr-priority rr-priority-{{ (complaint.priority or 'Normal')|lower }}">{{ complaint.priority or 'Normal' }} priority</span>
+        <span class="rr-complaint-status">{{ complaint.status }}</span>
+      </div>
     </div>
 
     <div class="row g-4">
@@ -42,6 +46,40 @@
             <div id="adminMap" class="rr-report-map"></div>
           {% else %}
             <div class="rr-empty-state">No map coordinates were recorded for this complaint.</div>
+          {% endif %}
+        </div>
+
+        <div class="rr-auth-card mb-4" id="duplicates">
+          <h2 class="rr-h3 mb-2">Possible duplicates</h2>
+          {% if complaint.latitude is none or complaint.longitude is none %}
+            <p class="rr-body-text mb-0">This complaint has no map location, so nearby reports cannot be checked.</p>
+          {% elif duplicates %}
+            <p class="rr-body-text">Open complaints within {{ duplicate_radius }} metres of this one. If one of them is the same damage, you can reject this complaint as a duplicate of it.</p>
+            <ul class="rr-update-list">
+              {% for d in duplicates %}
+              <li class="rr-update-item">
+                <div class="rr-update-header">
+                  <a href="{{ url_for('admin.complaint_detail', complaint_id=d.complaint.complaint_id) }}"><strong>{{ d.complaint.complaint_id }}</strong></a>
+                  <span class="rr-update-date">{{ d.distance }} m away &middot; {{ d.complaint.created_at.strftime('%d %b %Y') }}</span>
+                </div>
+                <div class="rr-update-remarks">
+                  {{ d.complaint.damage_category }}{% if d.same_category %} <span class="rr-form-hint">(same category)</span>{% endif %}
+                  &middot; {{ d.complaint.status }} &middot; {{ d.complaint.location_name }}
+                </div>
+                {% if complaint.status != 'Resolved' and complaint.status != 'Rejected' %}
+                <form method="POST" class="mt-2"
+                      action="{{ url_for('admin.mark_as_duplicate', complaint_id=complaint.complaint_id) }}"
+                      onsubmit="return confirm('Reject {{ complaint.complaint_id }} as a duplicate of {{ d.complaint.complaint_id }}?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="original_id" value="{{ d.complaint.complaint_id }}">
+                  <button type="submit" class="btn rr-btn-outline btn-sm">Reject this one as a duplicate of {{ d.complaint.complaint_id }}</button>
+                </form>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="rr-body-text mb-0">No other open complaints within {{ duplicate_radius }} metres.</p>
           {% endif %}
         </div>
 
@@ -110,8 +148,19 @@
             </div>
             <div class="mb-3">
               <label class="form-label" for="assigned_team">Assigned team</label>
+              {% if use_team_dropdown %}
+              <select class="form-select" id="assigned_team" name="assigned_team">
+                <option value="">No team</option>
+                {% for t in team_names %}
+                <option value="{{ t }}" {% if t == complaint.assigned_team %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Need another team? <a href="{{ url_for('admin.teams') }}">Add it on the Repair teams page.</a></div>
+              {% else %}
               <input type="text" class="form-control" id="assigned_team" name="assigned_team" maxlength="120"
                      value="{{ complaint.assigned_team or '' }}" placeholder="e.g. Roads Maintenance – Ward 12">
+              <div class="form-text">Tip: add your teams on the <a href="{{ url_for('admin.teams') }}">Repair teams page</a> to pick from a list instead of typing.</div>
+              {% endif %}
             </div>
             <div class="mb-3">
               <label class="form-label" for="remarks">Remarks</label>
@@ -119,6 +168,23 @@
                         placeholder="Visible to the citizen on the tracking page"></textarea>
             </div>
             <button type="submit" class="btn rr-btn-primary w-100">Save update</button>
+          </form>
+        </div>
+
+        <div class="rr-auth-card mb-4">
+          <h2 class="rr-h3 mb-3">Priority</h2>
+          <form method="POST" action="{{ url_for('admin.update_priority', complaint_id=complaint.complaint_id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label" for="priority">How urgent is this repair?</label>
+            <div class="d-flex gap-2">
+              <select class="form-select" id="priority" name="priority">
+                {% for p in priorities %}
+                <option value="{{ p }}" {% if p == (complaint.priority or 'Normal') %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn rr-btn-outline">Save</button>
+            </div>
+            <div class="form-text">Sort the complaints list by priority to see Urgent and High first. Changes appear in the history, which the citizen can see.</div>
           </form>
         </div>
 

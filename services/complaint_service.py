@@ -1,6 +1,6 @@
 """Business logic for creating a complaint and its first status entry."""
 from models import db
-from models.complaint import Complaint
+from models.complaint import PRIORITIES, Complaint
 from models.complaint_update import ComplaintUpdate
 from models.repair_evidence import RepairEvidence
 
@@ -60,12 +60,17 @@ MAX_TEAM_LENGTH = 120
 MAX_EVIDENCE_NOTE_LENGTH = 200
 
 
-def apply_status_update(complaint, admin_id, new_status, assigned_team, remarks, valid_statuses):
+def apply_status_update(complaint, admin_id, new_status, assigned_team, remarks, valid_statuses,
+                        allowed_teams=None):
     """Change a complaint's status / team and/or add a remark, with a log row.
 
     Every change is recorded as a ComplaintUpdate (previous status, new
     status, remarks, who, when). A remark added without changing the
     status is recorded with the same status on both sides.
+
+    allowed_teams: when given (a list of team names), a newly chosen team must
+    be one of them. Keeping the complaint's current team is always allowed.
+    None means any text is accepted (no teams have been set up yet).
     """
     if new_status not in valid_statuses:
         raise UpdateError("Choose a valid status.")
@@ -77,6 +82,10 @@ def apply_status_update(complaint, admin_id, new_status, assigned_team, remarks,
         raise UpdateError(f"Team name must be {MAX_TEAM_LENGTH} characters or fewer.")
     if remarks and len(remarks) > MAX_REMARKS_LENGTH:
         raise UpdateError(f"Remarks must be {MAX_REMARKS_LENGTH} characters or fewer.")
+    if (assigned_team and allowed_teams is not None
+            and assigned_team != complaint.assigned_team
+            and assigned_team not in allowed_teams):
+        raise UpdateError("Choose a team from the list. New teams are added on the Teams page.")
 
     previous_status = complaint.status
 
@@ -169,3 +178,44 @@ def add_repair_evidence(complaint, admin_id, file_storage, kind, note, upload_fo
         uploaded_by=admin_id,
     ))
     db.session.commit()
+
+
+def set_priority(complaint, admin_id, priority):
+    """Change how urgent a complaint is and log it in the history."""
+    if priority not in PRIORITIES:
+        raise UpdateError("Choose a valid priority.")
+    current = complaint.priority or "Normal"
+    if priority == current:
+        raise UpdateError(f"Priority is already {current}.")
+
+    complaint.priority = priority
+    db.session.add(ComplaintUpdate(
+        complaint_id=complaint.id,
+        previous_status=complaint.status,
+        new_status=complaint.status,
+        remarks=f"Priority changed from {current} to {priority}.",
+        updated_by=admin_id,
+    ))
+    db.session.commit()
+
+
+def mark_duplicate(complaint, admin_id, original, valid_statuses):
+    """Reject a complaint as a duplicate of another one, with a clear reason.
+
+    The citizen sees "Rejected" with the reason "Duplicate of RR-XXXX", which
+    tells them the same damage is already being handled.
+    """
+    if original is None:
+        raise UpdateError("The complaint you picked as the original was not found.")
+    if original.id == complaint.id:
+        raise UpdateError("A complaint cannot be a duplicate of itself.")
+    if complaint.status == "Resolved":
+        raise UpdateError("A resolved complaint cannot be marked as a duplicate.")
+
+    apply_status_update(
+        complaint, admin_id,
+        new_status="Rejected",
+        assigned_team=complaint.assigned_team,
+        remarks=f"Duplicate of {original.complaint_id}. The same damage is already being handled there.",
+        valid_statuses=valid_statuses,
+    )

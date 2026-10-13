@@ -8,6 +8,7 @@
 {% block content %}
 <section class="rr-section rr-section-grey">
   <div class="container">
+    {% set admin_active = 'dashboard' %}{% include "_admin_nav.html" %}
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
       <div>
         <h1 class="rr-h2 mb-1">Admin dashboard</h1>
@@ -15,12 +16,51 @@
       </div>
     </div>
 
-    <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-xl-5 mb-4">
+    <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-xl-6 mb-4">
       <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.total }}</div><div class="rr-stat-label">Total complaints</div></div></div>
       <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.new }}</div><div class="rr-stat-label">New</div></div></div>
       <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.awaiting_verification }}</div><div class="rr-stat-label">Awaiting verification</div></div></div>
       <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.assigned }}</div><div class="rr-stat-label">Assigned or in repair</div></div></div>
       <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.resolved }}</div><div class="rr-stat-label">Resolved</div></div></div>
+      <div class="col"><div class="rr-stat-card"><div class="rr-stat-number">{{ summary.urgent_open }}</div><div class="rr-stat-label">High or urgent, still open</div></div></div>
+    </div>
+
+    <div class="rr-auth-card mb-4" id="aiPanel">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h2 class="rr-h3 mb-0">AI detection</h2>
+        {% if ai_status.active %}
+          <span class="rr-complaint-status" id="aiState">Active</span>
+        {% else %}
+          <span class="rr-complaint-status" id="aiState" style="color:#8a5a00; background:#fff3d6;">Not active</span>
+        {% endif %}
+      </div>
+      <p class="rr-body-text mb-3">{{ ai_status.reason }}</p>
+      <div class="row g-3">
+        <div class="col-6 col-lg-3">
+          <div class="rr-confirm-label">Model file</div>
+          <div class="rr-confirm-value">{{ ai_status.model_file or "None" }}</div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="rr-confirm-label">Model last updated</div>
+          <div class="rr-confirm-value">{% if ai_status.model_updated %}{{ ai_status.model_updated.strftime('%d %b %Y') }}{% else %}&mdash;{% endif %}</div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="rr-confirm-label">Minimum confidence</div>
+          <div class="rr-confirm-value">{{ "%.0f"|format(ai_status.threshold * 100) }}%</div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="rr-confirm-label">Complaints with an AI label</div>
+          <div class="rr-confirm-value"><span id="aiCountClassified">{{ ai_status.classified_by_ai }}</span></div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="rr-confirm-label">Label set by an administrator</div>
+          <div class="rr-confirm-value"><span id="aiCountAdmin">{{ ai_status.set_by_admin }}</span></div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="rr-confirm-label">No AI result</div>
+          <div class="rr-confirm-value"><span id="aiCountNone">{{ ai_status.no_ai_result }}</span></div>
+        </div>
+      </div>
     </div>
 
     <div class="rr-auth-card mb-4">
@@ -35,16 +75,78 @@
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
       <h2 class="rr-h3 mb-0">All complaints</h2>
-      <form method="GET" action="{{ url_for('admin.dashboard') }}" class="d-flex gap-2">
-        <select name="status" class="form-select form-select-sm" aria-label="Filter by status">
-          <option value="">All statuses</option>
-          {% for s in statuses %}
-          <option value="{{ s }}" {% if s == status_filter %}selected{% endif %}>{{ s }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="btn rr-btn-outline btn-sm">Filter</button>
-      </form>
+      <a class="btn rr-btn-outline btn-sm" href="{{ url_for('admin.export_csv', **filters) }}">Download as CSV</a>
     </div>
+
+    <form method="GET" action="{{ url_for('admin.dashboard') }}" class="rr-auth-card mb-3" id="complaintFilters">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-4">
+          <label class="form-label" for="fq">Search</label>
+          <input type="search" class="form-control form-control-sm" id="fq" name="q" value="{{ filters.get('q', '') }}"
+                 maxlength="100" placeholder="Complaint ID, place, description or reporter">
+        </div>
+        <div class="col-6 col-lg-2">
+          <label class="form-label" for="fstatus">Status</label>
+          <select name="status" id="fstatus" class="form-select form-select-sm">
+            <option value="">All statuses</option>
+            {% for s in statuses %}
+            <option value="{{ s }}" {% if s == status_filter %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <label class="form-label" for="fcategory">Category</label>
+          <select name="category" id="fcategory" class="form-select form-select-sm">
+            <option value="">All categories</option>
+            {% for c in categories %}
+            <option value="{{ c }}" {% if c == filters.get('category') %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <label class="form-label" for="fpriority">Priority</label>
+          <select name="priority" id="fpriority" class="form-select form-select-sm">
+            <option value="">Any priority</option>
+            {% for p in priorities %}
+            <option value="{{ p }}" {% if p == filters.get('priority') %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <label class="form-label" for="fteam">Team</label>
+          <select name="team" id="fteam" class="form-select form-select-sm">
+            <option value="">Any team</option>
+            <option value="{{ no_team }}" {% if filters.get('team') == no_team %}selected{% endif %}>Not assigned yet</option>
+            {% for t in team_options %}
+            <option value="{{ t }}" {% if t == filters.get('team') %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <label class="form-label" for="ffrom">From date</label>
+          <input type="date" class="form-control form-control-sm" id="ffrom" name="date_from" value="{{ filters.get('date_from', '') }}">
+        </div>
+        <div class="col-6 col-lg-2">
+          <label class="form-label" for="fto">To date</label>
+          <input type="date" class="form-control form-control-sm" id="fto" name="date_to" value="{{ filters.get('date_to', '') }}">
+        </div>
+        <div class="col-6 col-lg-3">
+          <label class="form-label" for="fsort">Order</label>
+          <select name="sort" id="fsort" class="form-select form-select-sm">
+            {% for key, label in sorts.items() %}
+            <option value="{{ key }}" {% if key == filters.get('sort', 'newest') %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-lg-3 d-flex gap-2">
+          <button type="submit" class="btn rr-btn-primary btn-sm">Apply</button>
+          <a href="{{ url_for('admin.dashboard') }}" class="btn rr-btn-outline btn-sm">Clear</a>
+        </div>
+      </div>
+      {% if filters %}
+      <p class="rr-form-hint mt-2 mb-0">Showing {{ pagination.total }} matching complaint{{ '' if pagination.total == 1 else 's' }}.</p>
+      {% endif %}
+    </form>
 
     {% if complaints %}
     <div class="rr-auth-card p-0">
@@ -55,6 +157,7 @@
               <th>Complaint ID</th>
               <th>Submitted</th>
               <th>Category</th>
+              <th>Priority</th>
               <th>Location</th>
               <th>AI prediction</th>
               <th>Review status</th>
@@ -68,6 +171,7 @@
               <td class="rr-complaint-id">{{ c.complaint_id }}</td>
               <td>{{ c.created_at.strftime('%d %b %Y') }}</td>
               <td>{{ c.damage_category }}</td>
+              <td><span class="rr-priority rr-priority-{{ (c.priority or 'Normal')|lower }}">{{ c.priority or 'Normal' }}</span></td>
               <td>{{ c.location_name }}</td>
               <td>
                 {% if c.ai_admin_reviewed %}
@@ -94,20 +198,20 @@
     <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Complaint pages">
       <div>
         {% if pagination.has_prev %}
-        <a class="btn rr-btn-outline btn-sm" href="{{ url_for('admin.dashboard', page=pagination.prev_num, status=status_filter or None) }}">&larr; Newer</a>
+        <a class="btn rr-btn-outline btn-sm" href="{{ url_for('admin.dashboard', page=pagination.prev_num, **filters) }}">&larr; Newer</a>
         {% endif %}
       </div>
       <span class="rr-form-hint">Page {{ pagination.page }} of {{ pagination.pages }}</span>
       <div>
         {% if pagination.has_next %}
-        <a class="btn rr-btn-outline btn-sm" href="{{ url_for('admin.dashboard', page=pagination.next_num, status=status_filter or None) }}">Older &rarr;</a>
+        <a class="btn rr-btn-outline btn-sm" href="{{ url_for('admin.dashboard', page=pagination.next_num, **filters) }}">Older &rarr;</a>
         {% endif %}
       </div>
     </nav>
     {% endif %}
     {% else %}
     <div class="rr-empty-state text-center">
-      {% if status_filter %}No complaints with the status "{{ status_filter }}".{% else %}No complaints have been submitted yet.{% endif %}
+      {% if filters %}No complaints match these filters. <a href="{{ url_for('admin.dashboard') }}">Clear them</a> to see everything.{% else %}No complaints have been submitted yet.{% endif %}
     </div>
     {% endif %}
   </div>

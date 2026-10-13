@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Staff accounts — Road Rakshak{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    {% set admin_active = 'staff' %}{% include "_admin_nav.html" %}
+    <div class="mb-4">
+      <h1 class="rr-h2 mb-1">Staff accounts</h1>
+      <p class="rr-body-text mb-0">Municipal staff who can review and update complaints.</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="rr-auth-card p-0">
+          <div class="table-responsive">
+            <table class="table rr-table align-middle mb-0" id="staffTable">
+              <thead>
+                <tr><th>Name</th><th>Email</th><th>Joined</th><th></th></tr>
+              </thead>
+              <tbody>
+                {% for u in staff_members %}
+                <tr>
+                  <td>{{ u.name }}{% if u.id == my_id %} <span class="rr-form-hint">(you)</span>{% endif %}</td>
+                  <td>{{ u.email }}</td>
+                  <td>{{ u.created_at.strftime('%d %b %Y') if u.created_at else '—' }}</td>
+                  <td class="text-end">
+                    {% if u.id != my_id %}
+                    <form method="POST" action="{{ url_for('admin.remove_staff', user_id=u.id) }}" class="d-inline"
+                          onsubmit="return confirm('Remove staff access for {{ u.email }}? They will become an ordinary citizen account.');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="btn rr-btn-outline btn-sm">Remove access</button>
+                    </form>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="rr-form-hint mt-2">Removing access keeps the account and its complaints. It simply becomes a citizen account. There must always be at least one administrator.</p>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="rr-auth-card">
+          <h2 class="rr-h3 mb-3">Add a staff member</h2>
+          <form method="POST" action="{{ url_for('admin.add_staff') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label" for="staffName">Full name</label>
+              <input type="text" class="form-control" id="staffName" name="name" maxlength="120">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="staffEmail">Official email</label>
+              <input type="email" class="form-control" id="staffEmail" name="email" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="staffPassword">Temporary password</label>
+              <input type="password" class="form-control" id="staffPassword" name="password" autocomplete="new-password" minlength="8">
+              <div class="form-text">At least 8 characters. If this email already has a citizen account, it is given staff access and its password stays the same, so leave this empty.</div>
+            </div>
+            <button type="submit" class="btn rr-btn-primary w-100">Add staff member</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

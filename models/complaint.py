@@ -3,6 +3,10 @@ from datetime import datetime, timezone
 from models import db
 
 
+# How urgent a complaint is, set by municipal staff (never by the citizen).
+PRIORITIES = ["Low", "Normal", "High", "Urgent"]
+
+
 def generate_complaint_id() -> str:
     """Generate a short, human-shareable complaint ID, e.g. RR-3F9A21B4."""
     return f"RR-{uuid.uuid4().hex[:8].upper()}"
@@ -29,6 +33,7 @@ class Complaint(db.Model):
 
     status = db.Column(db.String(30), nullable=False, default="Submitted")
     assigned_team = db.Column(db.String(120), nullable=True)
+    priority = db.Column(db.String(10), nullable=False, default="Normal", server_default="Normal")
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(

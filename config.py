@@ -5,10 +5,17 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 
+DEFAULT_SECRET_KEY = "dev-only-change-me"
+
+
 class Config:
     """Central app configuration, read from environment variables."""
 
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
+    SECRET_KEY = os.environ.get("SECRET_KEY", DEFAULT_SECRET_KEY)
+
+    # Shown in the page footer. Set real values in .env.
+    CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "support@roadrakshak.example")
+    HELPDESK_PHONE = os.environ.get("HELPDESK_PHONE", "1800-000-000")
 
     _default_db_path = os.path.join(BASE_DIR, "database", "road_rakshak.db")
     _raw_db_url = os.environ.get("DATABASE_URL", f"sqlite:///{_default_db_path}")

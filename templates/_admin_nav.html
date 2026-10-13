@@ -1,0 +1,20 @@
+{# Shared by every municipal page. Set admin_active to dashboard, analytics, teams or staff before including. #}
+<style>
+  .rr-admin-nav { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.5rem; }
+  .rr-admin-nav a {
+    padding: .45rem .95rem; border-radius: 999px; text-decoration: none; font-weight: 500;
+    color: var(--rr-green-700); background: #fff; border: 1px solid #d5ded5;
+  }
+  .rr-admin-nav a.active { background: var(--rr-green-700); color: #fff; border-color: var(--rr-green-700); }
+  .rr-priority { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+  .rr-priority-urgent { background: #fde8e8; color: #9b1c1c; }
+  .rr-priority-high   { background: #fff3d6; color: #8a5a00; }
+  .rr-priority-normal { background: #eef2ee; color: #3b4a3b; }
+  .rr-priority-low    { background: #e8f1fb; color: #2a5b8a; }
+</style>
+<nav class="rr-admin-nav" aria-label="Municipal pages">
+  <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if admin_active == 'dashboard' }}">Complaints</a>
+  <a href="{{ url_for('admin.analytics') }}" class="{{ 'active' if admin_active == 'analytics' }}">Analytics</a>
+  <a href="{{ url_for('admin.teams') }}" class="{{ 'active' if admin_active == 'teams' }}">Repair teams</a>
+  <a href="{{ url_for('admin.staff') }}" class="{{ 'active' if admin_active == 'staff' }}">Staff</a>
+</nav>

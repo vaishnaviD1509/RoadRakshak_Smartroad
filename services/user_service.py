@@ -39,3 +39,28 @@ def create_or_promote_admin(email, name=None, password=None):
     db.session.add(user)
     db.session.commit()
     return user, True
+
+def list_staff():
+    """All municipal (admin) accounts, oldest first."""
+    return User.query.filter_by(role="admin").order_by(User.created_at.asc(), User.id.asc()).all()
+
+
+def remove_admin_access(user_id, acting_admin_id):
+    """Turn a staff account back into an ordinary citizen account.
+
+    The account, its complaints and its history are kept; it just can no longer
+    use the municipal pages. You cannot remove your own access, and the last
+    remaining administrator can never be removed, so the system is never left
+    without anyone who can manage it.
+    """
+    user = db.session.get(User, user_id)
+    if user is None or not user.is_admin:
+        raise ValueError("That staff account was not found.")
+    if user.id == acting_admin_id:
+        raise ValueError("You cannot remove your own admin access. Ask another administrator to do it.")
+    if User.query.filter_by(role="admin").count() <= 1:
+        raise ValueError("At least one administrator must remain.")
+
+    user.role = "citizen"
+    db.session.commit()
+    return user

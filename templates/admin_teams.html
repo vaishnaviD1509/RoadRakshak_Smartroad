@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Repair teams — Road Rakshak{% endblock %}
+
+{% block content %}
+<section class="rr-section rr-section-grey">
+  <div class="container">
+    {% set admin_active = 'teams' %}{% include "_admin_nav.html" %}
+    <div class="mb-4">
+      <h1 class="rr-h2 mb-1">Repair teams</h1>
+      <p class="rr-body-text mb-0">The teams you can assign complaints to. Staff pick from this list on each complaint.</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="rr-auth-card p-0">
+          {% if summaries %}
+          <div class="table-responsive">
+            <table class="table rr-table align-middle mb-0" id="teamTable">
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th>Working on</th>
+                  <th>Resolved</th>
+                  <th>All time</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in summaries %}
+                <tr>
+                  <td><a href="{{ url_for('admin.dashboard', team=s.team.name) }}">{{ s.team.name }}</a></td>
+                  <td>{{ s.working }}</td>
+                  <td>{{ s.resolved }}</td>
+                  <td>{{ s.total }}</td>
+                  <td>{% if s.team.is_active %}<span class="rr-complaint-status">Available</span>{% else %}<span class="rr-form-hint">Switched off</span>{% endif %}</td>
+                  <td class="text-end">
+                    <form method="POST" action="{{ url_for('admin.toggle_team', team_id=s.team.id) }}" class="d-inline">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="active" value="{{ '0' if s.team.is_active else '1' }}">
+                      <button type="submit" class="btn rr-btn-outline btn-sm">{{ 'Switch off' if s.team.is_active else 'Switch on' }}</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="rr-empty-state text-center m-3">No teams yet. Add your first team on the right.</div>
+          {% endif %}
+        </div>
+        <p class="rr-form-hint mt-2">Switching a team off only hides it from the dropdown. Complaints already assigned to it keep their history.</p>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="rr-auth-card mb-4">
+          <h2 class="rr-h3 mb-3">Add a team</h2>
+          <form method="POST" action="{{ url_for('admin.add_team') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label" for="teamName">Team name</label>
+            <input type="text" class="form-control mb-3" id="teamName" name="name" maxlength="120" required
+                   placeholder="e.g. Roads Maintenance – Ward 12">
+            <button type="submit" class="btn rr-btn-primary w-100">Add team</button>
+          </form>
+        </div>
+
+        {% if unlisted %}
+        <div class="rr-auth-card" id="unlisted">
+          <h2 class="rr-h3 mb-2">Used before, not in the list</h2>
+          <p class="rr-body-text">These names were typed on earlier complaints. Add them to pick them from the dropdown.</p>
+          {% for name in unlisted %}
+          <form method="POST" action="{{ url_for('admin.add_team') }}" class="d-flex justify-content-between align-items-center gap-2 mb-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="name" value="{{ name }}">
+            <span>{{ name }}</span>
+            <button type="submit" class="btn rr-btn-outline btn-sm">Add</button>
+          </form>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

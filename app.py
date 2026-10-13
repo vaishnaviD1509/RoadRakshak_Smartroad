@@ -1,12 +1,26 @@
 import os
 from flask import Flask, request, flash, redirect, url_for
-from config import Config, BASE_DIR
+from config import Config, BASE_DIR, DEFAULT_SECRET_KEY
 from models import db
+from models.schema_upgrade import upgrade_schema
 
 
 def create_app(config_class: type = Config) -> Flask:
-    app = Flask(__name__)
+    # Templates and static files are looked up from the project root (the
+    # folder that holds config.py), so "TemplateNotFound" can't be caused by
+    # starting the app from a different working directory.
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(BASE_DIR, "templates"),
+        static_folder=os.path.join(BASE_DIR, "static"),
+    )
     app.config.from_object(config_class)
+
+    if not app.config.get("TESTING") and app.config["SECRET_KEY"] == DEFAULT_SECRET_KEY:
+        app.logger.warning(
+            "SECRET_KEY is the built-in development value. Set a real one in "
+            ".env before sharing or deploying this app."
+        )
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     os.makedirs(os.path.join(BASE_DIR, "database"), exist_ok=True)
@@ -16,6 +30,7 @@ def create_app(config_class: type = Config) -> Flask:
     from routes.main_routes import main_bp
     app.register_blueprint(main_bp)
 
+    # auth_bp serves both /login (citizen) and /municipal/login (staff)
     from routes.auth_routes import auth_bp
     app.register_blueprint(auth_bp)
 
@@ -44,6 +59,7 @@ def create_app(config_class: type = Config) -> Flask:
 
     with app.app_context():
         db.create_all()
+        upgrade_schema(db.engine)  # adds new columns to an older database
 
     return app
 
@@ -51,4 +67,5 @@ def create_app(config_class: type = Config) -> Flask:
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Debug is on for local development; set FLASK_DEBUG=0 in .env when deploying.
+    app.run(debug=os.environ.get("FLASK_DEBUG", "1") == "1")
