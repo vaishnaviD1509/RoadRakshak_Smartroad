@@ -42,7 +42,8 @@ def _admin_page(app, client):
     return client.get("/admin/").data.decode()
 
 
-def test_panel_says_not_active_when_ai_is_unavailable(app, client, monkeypatch):
+def test_panel_says_not_active_when_ai_is_unavailable(app, client, monkeypatch, tmp_path):
+    app.config["AI_MODEL_PATH"] = str(tmp_path / "no_model_here.pt")
     monkeypatch.setattr("routes.admin_routes.ai_available", lambda path: False)
     html = _admin_page(app, client)
     assert "AI detection" in html

@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, current_app
 from models import db
 from models.complaint import Complaint
+from services.damage_detection import ai_available
 
 main_bp = Blueprint("main", __name__)
 
@@ -34,4 +35,5 @@ def index():
         stats=stats,
         recent_complaints=recent_complaints,
         damage_categories=current_app.config["DAMAGE_CATEGORIES"],
+        ai_enabled=ai_available(current_app.config["AI_MODEL_PATH"]),
     )
