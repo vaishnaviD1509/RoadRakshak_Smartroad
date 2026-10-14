@@ -6,6 +6,10 @@ from models import db
 # How urgent a complaint is, set by municipal staff (never by the citizen).
 PRIORITIES = ["Low", "Normal", "High", "Urgent"]
 
+# A citizen may delete their own complaint only while nobody has started acting
+# on it. Once it is under review or being repaired, staff depend on the record.
+CITIZEN_DELETABLE_STATUSES = {"Submitted", "Rejected"}
+
 
 def generate_complaint_id() -> str:
     """Generate a short, human-shareable complaint ID, e.g. RR-3F9A21B4."""
@@ -50,6 +54,10 @@ class Complaint(db.Model):
         "RepairEvidence", backref="complaint", lazy=True, cascade="all, delete-orphan",
         order_by="RepairEvidence.created_at",
     )
+
+    @property
+    def citizen_can_delete(self) -> bool:
+        return self.status in CITIZEN_DELETABLE_STATUSES
 
     @property
     def ai_admin_reviewed(self) -> bool:

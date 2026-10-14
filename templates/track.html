@@ -36,8 +36,15 @@
             </div>
           </div>
 
-          <div class="text-end mb-3">
+          <div class="text-end mb-3 d-flex flex-wrap justify-content-end gap-2">
             <a href="{{ url_for('citizen.download_complaint_pdf', complaint_id=complaint.complaint_id) }}" class="btn rr-btn-outline btn-sm">Download PDF</a>
+            {% if complaint.citizen_can_delete %}
+            <form method="POST" action="{{ url_for('citizen.delete_complaint', complaint_id=complaint.complaint_id) }}"
+                  onsubmit="return confirm('Delete complaint {{ complaint.complaint_id }}? This cannot be undone.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Delete complaint</button>
+            </form>
+            {% endif %}
           </div>
 
           {% if complaint.status == "Rejected" %}

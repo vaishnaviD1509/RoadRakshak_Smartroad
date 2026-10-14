@@ -8,6 +8,7 @@ from models.complaint import Complaint
 from models.repair_evidence import RepairEvidence
 from routes.csrf import consume_form_token, get_form_token
 from routes.decorators import login_required
+from services.complaint_deletion import DeleteError, delete_own_complaint
 from services.complaint_service import create_complaint
 from services.damage_detection import detect_damage, looks_like_document
 from services.image_processing import ImageValidationError, validate_and_save_image
@@ -157,6 +158,26 @@ def download_complaint_pdf(complaint_id):
         as_attachment=True,
         download_name=f"{complaint.complaint_id}.pdf",
     )
+
+
+@citizen_bp.route("/report/<complaint_id>/delete", methods=["POST"])
+@login_required
+def delete_complaint(complaint_id):
+    """Let a citizen delete one of their own complaints, but only before
+    staff have started working on it. Same ownership check as everywhere
+    else: someone else's ID looks exactly like one that doesn't exist."""
+    complaint = Complaint.query.filter_by(complaint_id=complaint_id).first()
+    if not complaint or complaint.user_id != session["user_id"]:
+        abort(404)
+
+    try:
+        delete_own_complaint(complaint, session["user_id"], current_app.config["UPLOAD_FOLDER"])
+    except DeleteError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("tracking.track", complaint_id=complaint_id))
+
+    flash(f"Complaint {complaint_id} was deleted.", "success")
+    return redirect(url_for("citizen.dashboard"))
 
 
 @citizen_bp.route("/uploads/<filename>")

@@ -64,6 +64,14 @@
               <td class="text-end">
                 <a href="{{ url_for('tracking.track', complaint_id=c.complaint_id) }}"
                    class="btn rr-btn-outline btn-sm">View details</a>
+                {% if c.citizen_can_delete %}
+                <form method="POST" action="{{ url_for('citizen.delete_complaint', complaint_id=c.complaint_id) }}"
+                      class="d-inline"
+                      onsubmit="return confirm('Delete complaint {{ c.complaint_id }}? This cannot be undone.');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                </form>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
