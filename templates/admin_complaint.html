@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Review {{ complaint.complaint_id }} — Road Rakshak{% endblock %}
+{% block title %}Review {{ complaint.complaint_id }} &mdash; Road Rakshak{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
@@ -133,6 +133,24 @@
           </form>
         </div>
 
+        {% set sev = complaint.severity_assessment %}
+        <div class="rr-auth-card mb-4" id="severity">
+          <h2 class="rr-h3 mb-3">Severity estimate</h2>
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+            <span class="rr-priority rr-priority-{{ {'Low': 'low', 'Medium': 'normal', 'High': 'high'}[sev.level] }}">{{ sev.level }} severity</span>
+            <span class="rr-form-hint">Suggested priority: <strong>{{ sev.suggested_priority }}</strong></span>
+          </div>
+          <ul class="mb-2 ps-3">
+            {% for reason in sev.reasons %}
+            <li class="rr-form-hint">{{ reason }}</li>
+            {% endfor %}
+          </ul>
+          {% if sev.suggested_priority != (complaint.priority or 'Normal') %}
+          <div class="form-text mb-1">The current priority is {{ complaint.priority or 'Normal' }}. You can change it in the Priority box below.</div>
+          {% endif %}
+          <div class="form-text">An estimate from the category and the wording of the report, not a measurement of the damage. Staff decide the real priority.</div>
+        </div>
+
         <div class="rr-auth-card mb-4">
           <h2 class="rr-h3 mb-3">Review &amp; status</h2>
           <form method="POST" action="{{ url_for('admin.update_status', complaint_id=complaint.complaint_id) }}">
@@ -158,7 +176,7 @@
               <div class="form-text">Need another team? <a href="{{ url_for('admin.teams') }}">Add it on the Repair teams page.</a></div>
               {% else %}
               <input type="text" class="form-control" id="assigned_team" name="assigned_team" maxlength="120"
-                     value="{{ complaint.assigned_team or '' }}" placeholder="e.g. Roads Maintenance – Ward 12">
+                     value="{{ complaint.assigned_team or '' }}" placeholder="e.g. Roads Maintenance &ndash; Ward 12">
               <div class="form-text">Tip: add your teams on the <a href="{{ url_for('admin.teams') }}">Repair teams page</a> to pick from a list instead of typing.</div>
               {% endif %}
             </div>

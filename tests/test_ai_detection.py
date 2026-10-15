@@ -114,9 +114,10 @@ def test_document_like_photo_is_rejected_at_submission(app, client):
 
 
 def test_complaint_submission_succeeds_with_ai_unavailable(app, client):
-    """End-to-end: without a model file, submission still succeeds and
-    ai_prediction/ai_confidence stay null - nothing is fabricated."""
-    from models import db
+    """End-to-end: with no model file (the test config points the app at a
+    model that does not exist), submission still succeeds, the citizen is
+    told the complaint is queued for manual review, and ai_prediction /
+    ai_confidence stay null - nothing is fabricated."""
     from models.complaint import Complaint
 
     client.get("/register")
@@ -160,27 +161,13 @@ def test_complaint_submission_succeeds_with_ai_unavailable(app, client):
     }, content_type="multipart/form-data", follow_redirects=True)
 
     assert resp.status_code == 200
-    # This should always be true regardless of whether a trained model
-    # happens to be present in ai_models/ on the machine running the
-    # tests: the submission must succeed either way, and the confirmation
-    # page must say *something* about AI status.
-    body = resp.data.lower()
-    assert (
-        b"queued for manual review" in body
-        or b"did not produce" in body
-        or b"preliminary ai classification" in body
-        or b"looks like a document" in body
-    )
+    assert b"queued for manual review" in resp.data.lower()
 
     with app.app_context():
         complaint = Complaint.query.filter_by(location_name="MG Road").order_by(Complaint.id.desc()).first()
-        # Nothing is fabricated: either there's no prediction at all, or -
-        # if a real model happens to be present on this machine - a
-        # genuine prediction with a real confidence score between 0 and 1.
-        if complaint.ai_prediction is None:
-            assert complaint.ai_confidence is None
-        else:
-            assert 0.0 <= complaint.ai_confidence <= 1.0
+        assert complaint is not None
+        assert complaint.ai_prediction is None
+        assert complaint.ai_confidence is None
 
 
 def test_document_like_image_is_flagged_and_skips_classification(tmp_path):

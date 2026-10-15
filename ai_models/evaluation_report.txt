@@ -1,0 +1,24 @@
+Road Rakshak - model evaluation (test split)
+============================================================
+Images tested : 440
+Correct       : 422
+Accuracy      : 95.9%
+
+Class                    Precision   Recall      F1  Images
+-----------------------------------------------------------
+broken_road_sign_issues     100.0%   100.0%  100.0%       4
+damaged_road_issues          94.0%    91.3%   92.6%      69
+illegal_parking_issues      100.0%   100.0%  100.0%      11
+mixed_issues                 83.3%    75.0%   78.9%      20
+pothole_issues               96.8%    97.9%   97.3%     336
+
+Confusion matrix (rows = real class, columns = predicted class)
+
+                            0     1     2     3     4
+0: broken_road_sign_issues   4     0     0     0     0
+1: damaged_road_issues      0    63     0     0     6
+2: illegal_parking_issues   0     0    11     0     0
+3: mixed_issues             0     0     0    15     5
+4: pothole_issues           0     4     0     3   329
+
+Column numbers match the row numbers above.

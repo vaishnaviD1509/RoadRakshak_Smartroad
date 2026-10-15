@@ -69,5 +69,31 @@ class Complaint(db.Model):
         """
         return self.ai_prediction is not None and self.ai_confidence is None
 
+    @property
+    def severity_assessment(self) -> dict:
+        """Rule-based severity estimate (level, suggested priority, reasons).
+
+        Worked out on the fly from stored data, so it needs no database column.
+        The import is inside the method to avoid any circular-import problem.
+        """
+        from services.severity import assess_severity
+
+        return assess_severity(
+            damage_category=self.damage_category,
+            description=self.description,
+            ai_prediction=self.ai_prediction,
+            ai_confidence=self.ai_confidence,
+        )
+
+    @property
+    def severity(self) -> str:
+        """Low, Medium or High."""
+        return self.severity_assessment["level"]
+
+    @property
+    def suggested_priority(self) -> str:
+        """The priority the severity estimate suggests (staff decide the real one)."""
+        return self.severity_assessment["suggested_priority"]
+
     def __repr__(self):
         return f"<Complaint {self.complaint_id} [{self.status}]>"
