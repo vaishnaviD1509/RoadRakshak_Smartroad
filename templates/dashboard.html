@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}My Dashboard — Road Rakshak{% endblock %}
+{% block title %}My Dashboard &mdash; Road Rakshak{% endblock %}
 
 {% block content %}
 <section class="rr-section rr-section-grey">
@@ -58,7 +58,7 @@
             <tr>
               <td class="rr-complaint-id">{{ c.complaint_id }}</td>
               <td>{{ c.damage_category }}</td>
-              <td>{{ c.created_at.strftime('%d %b %Y') }}</td>
+              <td>{{ c.created_at|ist('%d %b %Y') }}</td>
               <td>{{ c.location_name }}</td>
               <td><span class="rr-complaint-status">{{ c.status }}</span></td>
               <td class="text-end">

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Admin dashboard — Road Rakshak{% endblock %}
+{% block title %}Admin dashboard &mdash; Road Rakshak{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
@@ -42,7 +42,7 @@
         </div>
         <div class="col-6 col-lg-3">
           <div class="rr-confirm-label">Model last updated</div>
-          <div class="rr-confirm-value">{% if ai_status.model_updated %}{{ ai_status.model_updated.strftime('%d %b %Y') }}{% else %}&mdash;{% endif %}</div>
+          <div class="rr-confirm-value">{% if ai_status.model_updated %}{{ ai_status.model_updated|ist('%d %b %Y') }}{% else %}&mdash;{% endif %}</div>
         </div>
         <div class="col-6 col-lg-3">
           <div class="rr-confirm-label">Minimum confidence</div>
@@ -169,7 +169,7 @@
             {% for c in complaints %}
             <tr>
               <td class="rr-complaint-id">{{ c.complaint_id }}</td>
-              <td>{{ c.created_at.strftime('%d %b %Y') }}</td>
+              <td>{{ c.created_at|ist('%d %b %Y') }}</td>
               <td>{{ c.damage_category }}</td>
               <td><span class="rr-priority rr-priority-{{ (c.priority or 'Normal')|lower }}">{{ c.priority or 'Normal' }}</span></td>
               <td>{{ c.location_name }}</td>
@@ -183,7 +183,7 @@
                 {% endif %}
               </td>
               <td><span class="rr-complaint-status">{{ c.status }}</span></td>
-              <td>{{ c.assigned_team or "—" }}</td>
+              <td>{% if c.assigned_team %}{{ c.assigned_team }}{% else %}&mdash;{% endif %}</td>
               <td class="text-end">
                 <a href="{{ url_for('admin.complaint_detail', complaint_id=c.complaint_id) }}" class="btn rr-btn-primary btn-sm">Review</a>
               </td>

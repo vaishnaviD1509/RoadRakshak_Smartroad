@@ -28,7 +28,7 @@
           <h2 class="rr-h3 mb-3">Report</h2>
           <div class="row g-3 mb-3">
             <div class="col-sm-6"><div class="rr-confirm-label">Reported by</div><div class="rr-confirm-value">{{ complaint.submitted_by.name }}<br><span class="rr-form-hint">{{ complaint.submitted_by.email }}</span></div></div>
-            <div class="col-sm-6"><div class="rr-confirm-label">Submitted</div><div class="rr-confirm-value">{{ complaint.created_at.strftime('%d %b %Y, %H:%M') }} UTC</div></div>
+            <div class="col-sm-6"><div class="rr-confirm-label">Submitted</div><div class="rr-confirm-value">{{ complaint.created_at|ist }}</div></div>
             <div class="col-sm-6"><div class="rr-confirm-label">Category (citizen's choice)</div><div class="rr-confirm-value">{{ complaint.damage_category }}</div></div>
             <div class="col-sm-6"><div class="rr-confirm-label">Location</div><div class="rr-confirm-value">{{ complaint.location_name }}</div></div>
             <div class="col-12"><div class="rr-confirm-label">Description</div><div class="rr-confirm-value">{{ complaint.description }}</div></div>
@@ -60,7 +60,7 @@
               <li class="rr-update-item">
                 <div class="rr-update-header">
                   <a href="{{ url_for('admin.complaint_detail', complaint_id=d.complaint.complaint_id) }}"><strong>{{ d.complaint.complaint_id }}</strong></a>
-                  <span class="rr-update-date">{{ d.distance }} m away &middot; {{ d.complaint.created_at.strftime('%d %b %Y') }}</span>
+                  <span class="rr-update-date">{{ d.distance }} m away &middot; {{ d.complaint.created_at|ist('%d %b %Y') }}</span>
                 </div>
                 <div class="rr-update-remarks">
                   {{ d.complaint.damage_category }}{% if d.same_category %} <span class="rr-form-hint">(same category)</span>{% endif %}
@@ -93,7 +93,7 @@
                 <span class="rr-update-status">
                   {% if u.previous_status and u.previous_status != u.new_status %}{{ u.previous_status }} &rarr; {% endif %}{{ u.new_status }}{% if u.previous_status == u.new_status %} (note){% endif %}
                 </span>
-                <span class="rr-update-date">{{ u.created_at.strftime('%d %b %Y, %H:%M') }} UTC{% if u.updated_by and names.get(u.updated_by) %} &middot; {{ names[u.updated_by] }}{% endif %}</span>
+                <span class="rr-update-date">{{ u.created_at|ist }}{% if u.updated_by and names.get(u.updated_by) %} &middot; {{ names[u.updated_by] }}{% endif %}</span>
               </div>
               {% if u.remarks %}<div class="rr-update-remarks">{{ u.remarks }}</div>{% endif %}
             </li>

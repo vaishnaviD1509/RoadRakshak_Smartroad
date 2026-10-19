@@ -3,6 +3,7 @@ from models import db
 from models.complaint import PRIORITIES, Complaint
 from models.complaint_update import ComplaintUpdate
 from models.repair_evidence import RepairEvidence
+from services.email_service import send_status_email
 
 
 def create_complaint(
@@ -68,6 +69,9 @@ def apply_status_update(complaint, admin_id, new_status, assigned_team, remarks,
     status, remarks, who, when). A remark added without changing the
     status is recorded with the same status on both sides.
 
+    When the status itself changes, the citizen is emailed (if email is set
+    up). That email can never make the update fail.
+
     allowed_teams: when given (a list of team names), a newly chosen team must
     be one of them. Keeping the complaint's current team is always allowed.
     None means any text is accepted (no teams have been set up yet).
@@ -120,6 +124,9 @@ def apply_status_update(complaint, admin_id, new_status, assigned_team, remarks,
         updated_by=admin_id,
     ))
     db.session.commit()
+
+    if status_changed:
+        send_status_email(complaint, previous_status, new_status, remarks)
 
 
 def record_classification_review(complaint, admin_id, label, valid_labels):

@@ -27,6 +27,7 @@ from services.pdf_report import build_summary_pdf
 from services.team_service import (active_team_names, create_team,
                                      set_team_active, team_summaries,
                                      unlisted_team_names)
+from services.timeutils import utc_from_timestamp, utc_now
 from services.user_service import (create_or_promote_admin, list_staff,
                                      remove_admin_access)
 
@@ -72,7 +73,7 @@ def _ai_status():
 
     model_updated = None
     if model_exists:
-        model_updated = datetime.utcfromtimestamp(os.path.getmtime(model_path))
+        model_updated = utc_from_timestamp(os.path.getmtime(model_path))
 
     return {
         "active": active,
@@ -161,7 +162,7 @@ def export_csv():
     for c in complaints:
         writer.writerow(csv_row(c))
 
-    filename = f"road-rakshak-complaints-{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    filename = f"road-rakshak-complaints-{utc_now().strftime('%Y%m%d')}.csv"
     # The leading BOM makes Excel read non-English place names correctly.
     return Response(
         "\ufeff" + buffer.getvalue(),
@@ -433,7 +434,7 @@ def _compute_analytics(category_filter: str, date_from, date_to) -> dict:
 
     # Complaints submitted over time (daily counts for the last 30 days
     # within the filtered set, oldest first)
-    window_start = datetime.utcnow() - timedelta(days=29)
+    window_start = utc_now() - timedelta(days=29)
     timeline_query = base_query
     daily_rows = (
         timeline_query.with_entities(
@@ -449,7 +450,7 @@ def _compute_analytics(category_filter: str, date_from, date_to) -> dict:
     timeline_labels = []
     timeline_values = []
     for offset in range(29, -1, -1):
-        day = (datetime.utcnow() - timedelta(days=offset)).strftime("%Y-%m-%d")
+        day = (utc_now() - timedelta(days=offset)).strftime("%Y-%m-%d")
         timeline_labels.append(day)
         timeline_values.append(daily_counts.get(day, 0))
 

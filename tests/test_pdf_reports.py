@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta
-
 from models import db
 from models.complaint import Complaint
 from models.complaint_update import ComplaintUpdate
 from models.user import User
+from services.timeutils import utc_now
 
 
 def _make_admin(app, email="pdfadmin@example.com"):
@@ -171,8 +170,8 @@ def test_summary_pdf_filename_includes_date_range(app, client):
     _login_admin(client, "pdfadmin@example.com")
     _add_complaint(app)
 
-    today = datetime.utcnow().strftime("%Y%m%d")
-    resp = client.get(f"/admin/reports/summary?date_from={datetime.utcnow().strftime('%Y-%m-%d')}")
+    today = utc_now().strftime("%Y%m%d")
+    resp = client.get(f"/admin/reports/summary?date_from={utc_now().strftime('%Y-%m-%d')}")
     assert resp.status_code == 200
     assert today in resp.headers.get("Content-Disposition", "")
 

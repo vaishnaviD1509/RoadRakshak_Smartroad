@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Complaint submitted — Road Rakshak{% endblock %}
+{% block title %}Complaint submitted &mdash; Road Rakshak{% endblock %}
 
 {% block content %}
 <section class="rr-section rr-section-grey">
@@ -28,7 +28,7 @@
             </div>
             <div class="col-sm-6">
               <div class="rr-confirm-label">Submitted on</div>
-              <div class="rr-confirm-value">{{ complaint.created_at.strftime('%d %b %Y, %H:%M') }} UTC</div>
+              <div class="rr-confirm-value">{{ complaint.created_at|ist }}</div>
             </div>
           </div>
 

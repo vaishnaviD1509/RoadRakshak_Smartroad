@@ -3,6 +3,7 @@ from flask import Flask, request, flash, redirect, url_for
 from config import Config, BASE_DIR, DEFAULT_SECRET_KEY
 from models import db
 from models.schema_upgrade import upgrade_schema
+from services.timeutils import format_ist
 
 
 def create_app(config_class: type = Config) -> Flask:
@@ -26,6 +27,9 @@ def create_app(config_class: type = Config) -> Flask:
     os.makedirs(os.path.join(BASE_DIR, "database"), exist_ok=True)
 
     db.init_app(app)
+
+    # {{ some_time|ist }} shows a stored UTC time as Indian Standard Time.
+    app.jinja_env.filters["ist"] = format_ist
 
     from routes.main_routes import main_bp
     app.register_blueprint(main_bp)

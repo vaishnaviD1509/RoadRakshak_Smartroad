@@ -1,21 +1,40 @@
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
+# Secrets: never push these
 .env
+*.env
+!.env.example
 
-# Database
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python junk
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local database
+database/
 *.db
+*.sqlite
+*.sqlite3
+instance/
 
-# Dataset
-dataset/
-
-# Uploaded images
+# Photos uploaded by users (private, and can be large)
 uploads/
 
-# Jupyter
-.ipynb_checkpoints/
+# Dataset and training output (large)
+dataset/
+runs/
+*.pt
+!ai_models/road_damage_model.pt
 
-# VS Code
+# Editor and system files
 .vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

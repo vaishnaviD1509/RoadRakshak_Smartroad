@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Track Complaint — Road Rakshak{% endblock %}
+{% block title %}Track Complaint &mdash; Road Rakshak{% endblock %}
 
 {% block content %}
 <section class="rr-section rr-section-grey">
@@ -32,7 +32,7 @@
             </div>
             <div class="text-end">
               <div class="rr-confirm-label">Submitted</div>
-              <div class="rr-confirm-value">{{ complaint.created_at.strftime('%d %b %Y, %H:%M') }} UTC</div>
+              <div class="rr-confirm-value">{{ complaint.created_at|ist }}</div>
             </div>
           </div>
 
@@ -121,7 +121,7 @@
                   <span class="rr-update-status">
                     {% if u.previous_status and u.previous_status != u.new_status %}{{ u.previous_status }} &rarr; {% endif %}{{ u.new_status }}{% if u.previous_status == u.new_status %} (note){% endif %}
                   </span>
-                  <span class="rr-update-date">{{ u.created_at.strftime('%d %b %Y, %H:%M') }} UTC</span>
+                  <span class="rr-update-date">{{ u.created_at|ist }}</span>
                 </div>
                 {% if u.remarks %}<div class="rr-update-remarks">{{ u.remarks }}</div>{% endif %}
               </li>
@@ -139,7 +139,7 @@
                 <img src="{{ url_for('citizen.uploaded_file', filename=evidence.image_path) }}"
                      alt="Repair evidence photo" class="rr-image-preview">
                 {% if evidence.description %}<p class="rr-form-hint mt-1 mb-0">{{ evidence.description }}</p>{% endif %}
-                <p class="rr-form-hint mb-0">{{ evidence.created_at.strftime('%d %b %Y, %H:%M') }} UTC</p>
+                <p class="rr-form-hint mb-0">{{ evidence.created_at|ist }}</p>
               </div>
               {% endfor %}
             </div>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Staff accounts — Road Rakshak{% endblock %}
+{% block title %}Staff accounts &mdash; Road Rakshak{% endblock %}
 
 {% block content %}
 <section class="rr-section rr-section-grey">
@@ -23,7 +23,7 @@
                 <tr>
                   <td>{{ u.name }}{% if u.id == my_id %} <span class="rr-form-hint">(you)</span>{% endif %}</td>
                   <td>{{ u.email }}</td>
-                  <td>{{ u.created_at.strftime('%d %b %Y') if u.created_at else '—' }}</td>
+                  <td>{% if u.created_at %}{{ u.created_at|ist('%d %b %Y') }}{% else %}&mdash;{% endif %}</td>
                   <td class="text-end">
                     {% if u.id != my_id %}
                     <form method="POST" action="{{ url_for('admin.remove_staff', user_id=u.id) }}" class="d-inline"

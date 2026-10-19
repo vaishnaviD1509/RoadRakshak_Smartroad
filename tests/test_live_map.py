@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from models import db
 from models.complaint import Complaint
 from models.user import User
+from services.timeutils import utc_now
 
 
 def _make_user(app, email="reporter@example.com"):
@@ -74,18 +75,18 @@ def test_points_api_filters_by_date_range(app, client):
         old = Complaint(
             user_id=user_id, damage_category="Pothole", description="Old one.",
             location_name="Old Road", status="Submitted", latitude=1, longitude=1,
-            created_at=datetime.utcnow() - timedelta(days=30),
+            created_at=utc_now() - timedelta(days=30),
         )
         recent = Complaint(
             user_id=user_id, damage_category="Pothole", description="Recent one.",
             location_name="Recent Road", status="Submitted", latitude=2, longitude=2,
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
         )
         db.session.add_all([old, recent])
         db.session.commit()
         old_id, recent_id = old.complaint_id, recent.complaint_id
 
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = utc_now().strftime("%Y-%m-%d")
     data = client.get(f"/map/api/points?date_from={today}").get_json()
     ids = {p["id"] for p in data}
     assert recent_id in ids
